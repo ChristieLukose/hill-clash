@@ -1,2 +1,28 @@
 @import url('https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700;800;900&family=Inter:wght@400;600;800&display=swap');
 *{box-sizing:border-box}html,body,#root{margin:0;min-height:100%;width:100%;font-family:Inter,system-ui,sans-serif;background:#101827;color:#f6f8fb}.app-shell{position:relative;min-height:100vh;overflow:hidden;background:linear-gradient(135deg,#0e1725,#182c3e)}.scene{position:absolute;inset:0;opacity:.94}.scene:after{content:'';position:absolute;inset:0;background:linear-gradient(90deg,rgba(9,15,25,.82),rgba(9,15,25,.2) 60%,rgba(9,15,25,.08)),linear-gradient(0deg,rgba(9,15,25,.55),transparent 40%);pointer-events:none}.topbar{position:relative;z-index:2;display:flex;align-items:center;padding:26px 5vw;gap:14px}.brand-mark{width:42px;height:42px;display:grid;place-items:center;background:#ffca3a;color:#132233;font-weight:900;border-radius:12px;transform:rotate(-4deg)}.brand{font-weight:900;letter-spacing:1.4px;font-size:18px}.brand span{color:#ffca3a}.brand small{display:block;font-size:9px;letter-spacing:3px;color:#a9c1d7;margin-top:3px}.top-pill{margin-left:auto;border:1px solid #ffffff35;border-radius:999px;padding:8px 12px;font-size:10px;letter-spacing:1.2px;color:#d2e3f3}.hero{position:relative;z-index:2;margin:8vh 0 0 8vw;max-width:520px}.eyebrow{font-size:12px;font-weight:800;letter-spacing:2px;color:#ffca3a}h1{font-family:'Barlow Condensed',sans-serif;font-size:clamp(64px,9vw,112px);line-height:.83;letter-spacing:-2px;margin:20px 0;font-weight:900;text-shadow:0 8px 40px #0005}h1 span{color:#ffca3a}.hero p{color:#d5e3ee;line-height:1.7;font-size:15px}.menu-buttons{display:flex;flex-wrap:wrap;gap:12px;margin-top:28px}.primary,.secondary{border:0;padding:15px 21px;border-radius:12px;font-weight:900;letter-spacing:.5px;cursor:pointer;transition:.18s transform,.18s filter}.primary{background:linear-gradient(135deg,#ffca3a,#ff8d28);color:#172438;box-shadow:0 8px 24px #ff9c2d30}.secondary{background:#16283bdb;color:#f4f8fb;border:1px solid #ffffff38}.primary:hover,.secondary:hover{transform:translateY(-2px);filter:brightness(1.08)}.feature-row{display:flex;flex-wrap:wrap;gap:18px;margin-top:34px;font-size:10px;font-weight:800;letter-spacing:1px;color:#c7d9e8}.game-panel{position:relative;z-index:2;margin:8vh 8vw;max-width:600px;padding:24px;background:#101b2ccc;border:1px solid #ffffff2b;border-radius:18px;backdrop-filter:blur(12px)}.game-title{font-weight:900;color:#ffca3a;letter-spacing:1.3px}.controls-note{color:#d3e1ed;font-size:12px;margin:14px 0}.back{margin-top:12px}footer{position:absolute;z-index:2;bottom:20px;left:5vw;right:5vw;display:flex;justify-content:space-between;color:#b8c8d8;font-size:9px;letter-spacing:1.5px}@media(max-width:650px){.topbar{padding:18px 5vw}.hero{margin:8vh 6vw 100px;max-width:90vw}h1{font-size:68px}.feature-row{gap:10px;font-size:9px}.menu-buttons{flex-direction:column;max-width:300px}.top-pill{font-size:8px}.scene:after{background:linear-gradient(90deg,rgba(9,15,25,.8),rgba(9,15,25,.28)),linear-gradient(0deg,rgba(9,15,25,.65),transparent 50%)}footer{font-size:8px;gap:10px}}
+
+/* Keep the gameplay controls compact so they don't hide the climbing view. */
+.game-panel {
+  position: absolute;
+  top: 108px;
+  left: clamp(12px, 4vw, 44px);
+  width: min(340px, calc(100vw - 24px));
+  max-width: 340px;
+  margin: 0;
+  padding: 16px 18px;
+  background: rgba(16, 27, 44, 0.88);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 14px;
+  backdrop-filter: blur(12px);
+}
+.game-title { font-size: 15px; line-height: 1.2; }
+.controls-note { font-size: 11px; line-height: 1.5; margin: 10px 0 4px; }
+.game-panel .back { padding: 10px 14px; font-size: 12px; }
+@media (max-width: 650px) {
+  .game-panel {
+    top: 92px;
+    left: 10px;
+    width: min(310px, calc(100vw - 20px));
+    padding: 12px 14px;
+  }
+}
