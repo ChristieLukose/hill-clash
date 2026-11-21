@@ -48,7 +48,7 @@ function MenuTruck() {
             <meshStandardMaterial color="#aab0b5" metalness={0.68} roughness={0.3} />
           </mesh>
         </group>
-      ))}
+      )))}
     </group>
   );
 }
