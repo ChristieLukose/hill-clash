@@ -112,7 +112,20 @@ export default function Truck3D({
   const onHudRef = useRef(onHud);
   const spawn = useMemo<[number, number, number]>(() => {
     const progress = 2;
-    return [roadCenterX(progress) + laneStart, roadHeight(progress) + 1.25, -progress];
+    const centerX = roadCenterX(progress) + laneStart;
+    // The chassis is rotated 90 degrees around Y: local wheel Z becomes
+    // world X and local wheel X advances along the road toward -Z.
+    // Spawn from the highest of all four wheel-ground samples, not the
+    // road-centre sample, otherwise the upper-side rays can start too high
+    // to reach the terrain and the vehicle has zero suspension load/traction.
+    const highestWheelGround = Math.max(
+      ...WHEELS.map((wheel) =>
+        roadHeight(progress + wheel.x) + (roadCenterX(progress + wheel.x) + wheel.z + laneStart - roadCenterX(progress + wheel.x)) * 0,
+      ),
+    );
+    const hubToGroundReach = WHEEL_REST_LENGTH + WHEEL_RADIUS;
+    const bodyHeight = highestWheelGround + hubToGroundReach - WHEEL_MOUNT_Y - 0.02;
+    return [centerX, bodyHeight, -progress];
   }, [laneStart]);
 
   activeRef.current = active;
