@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef } from 'react';
+import { useEffect, useMemo, useRef, type RefObject } from 'react';
 import { useFrame } from '@react-three/fiber';
 import {
   CuboidCollider,
@@ -54,7 +54,7 @@ type Truck3DProps = {
   color: string;
   laneStart: number;
   active: boolean;
-  camera: React.RefObject<THREE.PerspectiveCamera | null>;
+  camera: RefObject<THREE.PerspectiveCamera | null>;
   onHud?: (hud: VehicleHud) => void;
 };
 
