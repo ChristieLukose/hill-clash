@@ -224,7 +224,7 @@ function PlayerHud({ player, hud, split }: { player: 1 | 2; hud: VehicleHud; spl
         <span>REAR LOAD <b>{hud.rearLoad.toFixed(1)} kN</b></span>
       </div>
       <div className="axle-loads input-debug">
-        <span>WHEEL CONTACT <b>{hud.wheelContacts}/4</b></span>
+        <span>WHEEL CONTACT <b>{hud.wheelContacts < 0 ? 'INIT' : `${hud.wheelContacts}/4`}</b></span>
         <span>INPUT <b>{hud.input}</b></span>
       </div>
       <div className="traction-track"><i style={{ width: `${Math.round(slip * 100)}%` }} /></div>
