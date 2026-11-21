@@ -18,6 +18,8 @@ const emptyHud: VehicleHud = {
   rearLoad: 0,
   frontSlip: 0,
   rearSlip: 0,
+  wheelContacts: 0,
+  input: '—',
 };
 
 
@@ -220,6 +222,10 @@ function PlayerHud({ player, hud, split }: { player: 1 | 2; hud: VehicleHud; spl
       <div className="axle-loads">
         <span>FRONT LOAD <b>{hud.frontLoad.toFixed(1)} kN</b></span>
         <span>REAR LOAD <b>{hud.rearLoad.toFixed(1)} kN</b></span>
+      </div>
+      <div className="axle-loads input-debug">
+        <span>WHEEL CONTACT <b>{hud.wheelContacts}/4</b></span>
+        <span>INPUT <b>{hud.input}</b></span>
       </div>
       <div className="traction-track"><i style={{ width: `${Math.round(slip * 100)}%` }} /></div>
       <div className={slip > 0.16 ? 'traction-state slipping' : 'traction-state'}>
