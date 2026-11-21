@@ -3,7 +3,7 @@ import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { Environment, PerspectiveCamera } from '@react-three/drei';
 import { Physics } from '@react-three/rapier';
 import * as THREE from 'three';
-import HillTerrain from './HillTerrain';
+import HillTerrain, { roadCenterX, roadHeight } from './HillTerrain';
 import Truck3D, { type VehicleHud } from './Truck3D';
 
 type Mode = 'menu' | 'solo' | 'split';
@@ -19,6 +19,39 @@ const emptyHud: VehicleHud = {
   frontSlip: 0,
   rearSlip: 0,
 };
+
+
+/** Static menu showcase model; gameplay trucks use the full Rapier 3D controller. */
+function MenuTruck() {
+  return (
+    <group position={[roadCenterX(2), roadHeight(2) + 1.0, -2]} rotation={[0, Math.PI / 2, 0]}>
+      <mesh castShadow position={[0, 0.18, 0]}>
+        <boxGeometry args={[2.78, 0.58, 1.42]} />
+        <meshStandardMaterial color="#f5a623" roughness={0.42} metalness={0.24} />
+      </mesh>
+      <mesh castShadow position={[0.35, 0.77, 0]}>
+        <boxGeometry args={[1.12, 0.78, 1.12]} />
+        <meshStandardMaterial color="#202a34" roughness={0.34} />
+      </mesh>
+      <mesh position={[0.93, 0.78, 0]}>
+        <boxGeometry args={[0.025, 0.46, 0.96]} />
+        <meshStandardMaterial color="#94d8f4" transparent opacity={0.72} />
+      </mesh>
+      {[1, -1].flatMap((side) => [1.02, -1.02].map((x) => (
+        <group key={`${side}-${x}`} position={[x, -0.24, side * 0.78]}>
+          <mesh castShadow rotation={[Math.PI / 2, 0, 0]}>
+            <cylinderGeometry args={[0.43, 0.43, 0.32, 22]} />
+            <meshStandardMaterial color="#171a21" roughness={0.95} />
+          </mesh>
+          <mesh rotation={[Math.PI / 2, 0, 0]}>
+            <cylinderGeometry args={[0.23, 0.23, 0.33, 18]} />
+            <meshStandardMaterial color="#aab0b5" metalness={0.68} roughness={0.3} />
+          </mesh>
+        </group>
+      ))}
+    </group>
+  );
+}
 
 /** Render one shared 3D scene through two cameras and two scissor viewports. */
 function SplitScreenRenderer({
@@ -109,6 +142,7 @@ function WorldCanvas({
       />
 
       <Suspense fallback={null}>
+        {mode === 'menu' && <MenuTruck />}
         <Physics gravity={[0, -9.81, 0]} timeStep={1 / 60}>
           <HillTerrain />
           {active && (
