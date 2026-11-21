@@ -34,6 +34,9 @@ function createMountainGeometry() {
   }
 
   geometry.computeVertexNormals();
+  // Vertex heights are modified after PlaneGeometry construction; refresh culling bounds.
+  geometry.computeBoundingBox();
+  geometry.computeBoundingSphere();
   return geometry;
 }
 
@@ -65,6 +68,8 @@ function createTrailGeometry() {
   geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
   geometry.setIndex(indices);
   geometry.computeVertexNormals();
+  geometry.computeBoundingBox();
+  geometry.computeBoundingSphere();
   return geometry;
 }
 
@@ -104,18 +109,22 @@ export default function HillTerrain() {
 
   return (
     <group>
-      {/* The same uneven mesh is used for rendering and Rapier's static collision. */}
+      {/* Keep the visual terrain separate from Rapier's generated collider mesh. */}
+      <mesh geometry={mountain} receiveShadow frustumCulled={false} renderOrder={0}>
+        <meshStandardMaterial color="#66894c" roughness={1} side={THREE.DoubleSide} />
+      </mesh>
       <RigidBody type="fixed" colliders="trimesh">
-        <mesh geometry={mountain} receiveShadow>
-          <meshStandardMaterial color="#66894c" roughness={1} />
+        <mesh geometry={mountain}>
+          <meshBasicMaterial color="#66894c" side={THREE.DoubleSide} />
         </mesh>
       </RigidBody>
 
       {/* A visible dirt route follows the hill's bends and elevation changes. */}
-      <mesh geometry={trail} receiveShadow>
+      <mesh geometry={trail} receiveShadow frustumCulled={false} renderOrder={1}>
         <meshStandardMaterial
           color="#806b4d"
           roughness={1}
+          side={THREE.DoubleSide}
           polygonOffset
           polygonOffsetFactor={-1}
         />
