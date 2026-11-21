@@ -139,9 +139,9 @@ export default function Truck3D({
     // dynamic chassis has been registered with the physics world.
     if (!vehicle.current) {
       const controller = world.createVehicleController(chassis);
-      // Chassis-local +X is forward, +Y is up, and +Z is the wheel axle.
-      controller.setIndexForwardAxis(0);
-      controller.indexUpAxis = 1;
+      // Rapier's default vehicle axes are local +X forward and +Y up,
+      // which match this chassis. Keep the defaults; the forward-axis API is
+      // a property setter, not a callable method.
 
       WHEELS.forEach((wheel, index) => {
         controller.addWheel(
