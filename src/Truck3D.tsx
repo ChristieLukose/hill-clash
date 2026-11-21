@@ -110,7 +110,7 @@ export default function Truck3D({
       const controller = world.createVehicleController(chassis);
       // Chassis-local +X is forward, +Y is up, and +Z is the wheel axle.
       controller.setIndexForwardAxis(0);
-      controller.setIndexUpAxis(1);
+      controller.indexUpAxis = 1;
 
       WHEELS.forEach((wheel, index) => {
         controller.addWheel(
