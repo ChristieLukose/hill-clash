@@ -27,13 +27,25 @@ const WHEELS = [
 ] as const;
 
 const pressedKeys = new Set<string>();
-if (typeof window !== 'undefined') {
-  window.addEventListener('keydown', (event) => {
+if (typeof window !== 'undefined' && typeof document !== 'undefined') {
+  const onKeyDown = (event: KeyboardEvent) => {
     const key = event.key.toLowerCase();
-    if (key.startsWith('arrow') || key === ' ') event.preventDefault();
+    const code = event.code.toLowerCase();
+    if (
+      ['arrowup', 'arrowdown', 'arrowleft', 'arrowright', ' '].includes(key) ||
+      ['space', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright'].includes(code)
+    ) event.preventDefault();
     pressedKeys.add(key);
-  });
-  window.addEventListener('keyup', (event) => pressedKeys.delete(event.key.toLowerCase()));
+    pressedKeys.add(code);
+  };
+  const onKeyUp = (event: KeyboardEvent) => {
+    pressedKeys.delete(event.key.toLowerCase());
+    pressedKeys.delete(event.code.toLowerCase());
+  };
+  // Capture phase ensures game input still sees keys when a UI child handles
+  // or stops the bubbling keyboard event.
+  document.addEventListener('keydown', onKeyDown, true);
+  document.addEventListener('keyup', onKeyUp, true);
   window.addEventListener('blur', () => pressedKeys.clear());
 }
 
@@ -47,6 +59,8 @@ export type VehicleHud = {
   rearLoad: number;
   frontSlip: number;
   rearSlip: number;
+  wheelContacts: number;
+  input: string;
 };
 
 type Truck3DProps = {
@@ -58,20 +72,24 @@ type Truck3DProps = {
   onHud?: (hud: VehicleHud) => void;
 };
 
+function isPressed(key: string, code?: string) {
+  return pressedKeys.has(key) || (code ? pressedKeys.has(code) : false);
+}
+
 function readControls(player: 1 | 2) {
   if (player === 1) {
     return {
-      throttle: (pressedKeys.has('w') ? 1 : 0) - (pressedKeys.has('s') ? 0.62 : 0),
-      steering: (pressedKeys.has('d') ? 1 : 0) - (pressedKeys.has('a') ? 1 : 0),
-      brake: pressedKeys.has(' '),
-      reset: pressedKeys.has('r'),
+      throttle: (isPressed('w', 'keyw') ? 1 : 0) - (isPressed('s', 'keys') ? 0.62 : 0),
+      steering: (isPressed('d', 'keyd') ? 1 : 0) - (isPressed('a', 'keya') ? 1 : 0),
+      brake: isPressed(' ', 'space'),
+      reset: isPressed('r', 'keyr'),
     };
   }
   return {
-    throttle: (pressedKeys.has('arrowup') ? 1 : 0) - (pressedKeys.has('arrowdown') ? 0.62 : 0),
-    steering: (pressedKeys.has('arrowright') ? 1 : 0) - (pressedKeys.has('arrowleft') ? 1 : 0),
-    brake: pressedKeys.has('shift'),
-    reset: pressedKeys.has('enter'),
+    throttle: (isPressed('arrowup') ? 1 : 0) - (isPressed('arrowdown') ? 0.62 : 0),
+    steering: (isPressed('arrowright') ? 1 : 0) - (isPressed('arrowleft') ? 1 : 0),
+    brake: isPressed('shift', 'shiftleft') || isPressed('shift', 'shiftright'),
+    reset: isPressed('enter', 'enter'),
   };
 }
 
@@ -247,6 +265,15 @@ export default function Truck3D({
           rearLoad: rearLoad / 1000,
           frontSlip: Math.max(wheelSlip.current[0], wheelSlip.current[1]),
           rearSlip: Math.max(wheelSlip.current[2], wheelSlip.current[3]),
+          wheelContacts: WHEELS.filter((_, index) => controller.wheelIsInContact(index)).length,
+          input: (() => {
+            const keys = readControls(player);
+            if (keys.throttle > 0) return 'ACCEL';
+            if (keys.throttle < 0) return 'REVERSE';
+            if (keys.steering !== 0) return 'STEER';
+            if (keys.brake) return 'BRAKE';
+            return '—';
+          })(),
         });
       }
     }
