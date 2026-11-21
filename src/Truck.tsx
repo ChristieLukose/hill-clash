@@ -42,7 +42,7 @@ export default function Truck({ color = '#ff6b35', position = [0, 1.1, 0], activ
   const contact = useMemo(() => new THREE.Vector3(), []);
   const rotation = useMemo(() => new THREE.Quaternion(), []);
   const spawn = useMemo<[number, number, number]>(
-    () => [position[0], mountainHeight(position[0], position[2]) + 1.05, position[2]],
+    () => [position[0], mountainHeight(position[0], position[2]) + 0.90, position[2]],
     [position[0], position[2]],
   );
 
