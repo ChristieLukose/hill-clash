@@ -1,4 +1,4 @@
-import { Suspense, useRef, useState } from 'react';
+import { Suspense, useRef, useState, type RefObject } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { Environment, PerspectiveCamera } from '@react-three/drei';
 import { Physics } from '@react-three/rapier';
@@ -25,8 +25,8 @@ function SplitScreenRenderer({
   cameraOne,
   cameraTwo,
 }: {
-  cameraOne: React.RefObject<THREE.PerspectiveCamera | null>;
-  cameraTwo: React.RefObject<THREE.PerspectiveCamera | null>;
+  cameraOne: RefObject<THREE.PerspectiveCamera | null>;
+  cameraTwo: RefObject<THREE.PerspectiveCamera | null>;
 }) {
   const { gl, scene, size } = useThree();
 
