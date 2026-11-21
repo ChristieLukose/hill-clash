@@ -171,6 +171,7 @@ export default function Truck3D({
     // Engine output falls away as forward speed approaches the top gear limit.
     const speedFade = THREE.MathUtils.clamp(1 - Math.abs(currentSpeed) / MAX_SPEED, 0.18, 1);
     const engineForce = MAX_ENGINE_FORCE * speedFade * input.throttle;
+    if (input.throttle !== 0 || input.steering !== 0 || input.brake) chassis.wakeUp();
     const progress = Math.max(0, -translation.z);
     const terrainGrip = progress > 38 ? 4.0 : progress > 20 ? 5.6 : 7.4;
 
@@ -202,9 +203,11 @@ export default function Truck3D({
     const q = chassis.rotation();
     const quaternion = new THREE.Quaternion(q.x, q.y, q.z, q.w);
     const controller = vehicle.current;
+    const speed = controller
+      ? controller.currentVehicleSpeed()
+      : chassis.linvel().x;
 
     if (controller) {
-      const speed = controller.currentVehicleSpeed();
       const dt = Math.max(delta, 1 / 240);
 
       WHEELS.forEach((wheel, index) => {
@@ -230,52 +233,57 @@ export default function Truck3D({
         if (spinningWheel) spinningWheel.rotation.z = wheelRotation;
       });
 
-      // Follow the vehicle from behind its local +X forward axis.
       if (activeRef.current && camera.current) {
         const behind = new THREE.Vector3(-8.5, 0, 0).applyQuaternion(quaternion);
-        const desired = new THREE.Vector3(
-          p.x + behind.x,
-          p.y + 4.6,
-          p.z + behind.z,
-        );
+        const desired = new THREE.Vector3(p.x + behind.x, p.y + 4.6, p.z + behind.z);
         camera.current.position.lerp(desired, 0.085);
         const forward = new THREE.Vector3(4.2, 0, 0).applyQuaternion(quaternion);
         camera.current.up.set(0, 1, 0);
         camera.current.lookAt(p.x + forward.x, p.y + 0.45, p.z + forward.z);
       }
+    }
 
-      hudClock.current += delta;
-      if (activeRef.current && hudClock.current > 0.12 && onHudRef.current) {
-        hudClock.current = 0;
-        const rotationEuler = new THREE.Euler().setFromQuaternion(quaternion, 'YXZ');
-        const frontLoad =
-          (controller.wheelSuspensionForce(0) ?? 0) +
-          (controller.wheelSuspensionForce(1) ?? 0);
-        const rearLoad =
-          (controller.wheelSuspensionForce(2) ?? 0) +
-          (controller.wheelSuspensionForce(3) ?? 0);
+    // Keep HUD live even if the vehicle controller fails to initialize. This
+    // exposes keyboard receipt and wheel contacts instead of silently showing
+    // the initial all-zero HUD values.
+    hudClock.current += delta;
+    if (activeRef.current && hudClock.current > 0.12 && onHudRef.current) {
+      hudClock.current = 0;
+      const controls = readControls(player);
+      const rotationEuler = new THREE.Euler().setFromQuaternion(quaternion, 'YXZ');
+      const frontLoad = controller
+        ? (controller.wheelSuspensionForce(0) ?? 0) + (controller.wheelSuspensionForce(1) ?? 0)
+        : 0;
+      const rearLoad = controller
+        ? (controller.wheelSuspensionForce(2) ?? 0) + (controller.wheelSuspensionForce(3) ?? 0)
+        : 0;
+      const keyLabel = controls.throttle > 0
+        ? 'ACCEL'
+        : controls.throttle < 0
+          ? 'REVERSE'
+          : controls.steering !== 0
+            ? 'STEER'
+            : controls.brake
+              ? 'BRAKE'
+              : controller
+                ? 'READY'
+                : 'INIT';
 
-        onHudRef.current({
-          speed: Math.abs(speed) * 3.6,
-          progress: Math.max(0, -p.z),
-          gear: speed < -0.35 ? 'R' : speed > 14 ? '3' : speed > 6 ? '2' : speed > 0.35 ? '1' : 'N',
-          pitch: THREE.MathUtils.radToDeg(rotationEuler.z),
-          roll: THREE.MathUtils.radToDeg(rotationEuler.x),
-          frontLoad: frontLoad / 1000,
-          rearLoad: rearLoad / 1000,
-          frontSlip: Math.max(wheelSlip.current[0], wheelSlip.current[1]),
-          rearSlip: Math.max(wheelSlip.current[2], wheelSlip.current[3]),
-          wheelContacts: WHEELS.filter((_, index) => controller.wheelIsInContact(index)).length,
-          input: (() => {
-            const keys = readControls(player);
-            if (keys.throttle > 0) return 'ACCEL';
-            if (keys.throttle < 0) return 'REVERSE';
-            if (keys.steering !== 0) return 'STEER';
-            if (keys.brake) return 'BRAKE';
-            return '—';
-          })(),
-        });
-      }
+      onHudRef.current({
+        speed: Math.abs(speed) * 3.6,
+        progress: Math.max(0, -p.z),
+        gear: speed < -0.35 ? 'R' : speed > 14 ? '3' : speed > 6 ? '2' : speed > 0.35 ? '1' : 'N',
+        pitch: THREE.MathUtils.radToDeg(rotationEuler.z),
+        roll: THREE.MathUtils.radToDeg(rotationEuler.x),
+        frontLoad: frontLoad / 1000,
+        rearLoad: rearLoad / 1000,
+        frontSlip: Math.max(wheelSlip.current[0], wheelSlip.current[1]),
+        rearSlip: Math.max(wheelSlip.current[2], wheelSlip.current[3]),
+        wheelContacts: controller
+          ? WHEELS.filter((_, index) => controller.wheelIsInContact(index)).length
+          : -1,
+        input: keyLabel,
+      });
     }
   });
 
