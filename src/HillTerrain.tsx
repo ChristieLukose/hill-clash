@@ -13,7 +13,7 @@ export function mountainHeight(x: number, z: number) {
   const distance = Math.max(0, -z - 3);
   const climb = distance * 0.21 + 1.25 * Math.sin(distance * 0.22);
   const trailDistance = Math.abs(x - trailCenter(z));
-  const shoulder = Math.min(2.8, Math.max(0, trailDistance - 5.6) ** 2 * 0.018;
+  const shoulder = Math.min(2.8, Math.max(0, trailDistance - 5.6) ** 2 * 0.018);
   const roughness =
     Math.sin(x * 0.31 + z * 0.19) * 0.26 +
     Math.cos(z * 0.29) * 0.17 +
