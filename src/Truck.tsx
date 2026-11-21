@@ -173,9 +173,10 @@ export default function Truck({ color = '#ff6b35', position = [0, 1.1, 0], activ
     }
 
     if (active) {
-      const cameraPosition = new THREE.Vector3(p.x, p.y + 4.4, p.z + 9.5);
-      state.camera.position.lerp(cameraPosition, 0.075);
-      state.camera.lookAt(p.x, p.y + 0.9, p.z - 2.8);
+      // A higher, steeper chase camera keeps the trail and wheel contact area in view.
+      const cameraPosition = new THREE.Vector3(p.x, p.y + 6.2, p.z + 8.5);
+      state.camera.position.lerp(cameraPosition, 0.09);
+      state.camera.lookAt(p.x + forward.x * 1.5, p.y + 0.15, p.z + forward.z * 4.2);
     }
   });
 
