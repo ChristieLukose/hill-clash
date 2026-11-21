@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
 import * as THREE from 'three';
+import { RigidBody } from '@react-three/rapier';
 
 /** Centreline of the climbing trail, expressed in world X for a progress value. */
 export function roadCenterX(progress: number) {
@@ -117,9 +118,11 @@ export default function HillTerrain() {
 
   return (
     <group>
-      <mesh geometry={mountain} receiveShadow frustumCulled={false}>
-        <meshStandardMaterial color="#66894c" roughness={1} side={THREE.DoubleSide} />
-      </mesh>
+      <RigidBody type="fixed" colliders="trimesh" friction={1.05} restitution={0}>
+        <mesh geometry={mountain} receiveShadow frustumCulled={false}>
+          <meshStandardMaterial color="#66894c" roughness={1} side={THREE.DoubleSide} />
+        </mesh>
+      </RigidBody>
       <mesh geometry={trail} receiveShadow frustumCulled={false} renderOrder={1}>
         <meshStandardMaterial color="#806b4d" roughness={1} side={THREE.DoubleSide} polygonOffset polygonOffsetFactor={-1} />
       </mesh>
@@ -128,10 +131,20 @@ export default function HillTerrain() {
         const z = -rock.progress;
         const y = mountainHeight(x, z) + rock.size * 0.72;
         return (
-          <mesh key={rock.progress} position={[x, y, z]} rotation={[0.16, rock.rotation, 0.12]} castShadow receiveShadow>
-            <dodecahedronGeometry args={[rock.size, 1]} />
-            <meshStandardMaterial color="#77786f" roughness={1} />
-          </mesh>
+          <RigidBody
+            key={rock.progress}
+            type="fixed"
+            colliders="hull"
+            position={[x, y, z]}
+            rotation={[0.16, rock.rotation, 0.12]}
+            friction={0.9}
+            restitution={0}
+          >
+            <mesh castShadow receiveShadow>
+              <dodecahedronGeometry args={[rock.size, 1]} />
+              <meshStandardMaterial color="#77786f" roughness={1} />
+            </mesh>
+          </RigidBody>
         );
       })}
       {Array.from({ length: 18 }, (_, i) => {
@@ -142,10 +155,12 @@ export default function HillTerrain() {
         const x = center + side * (11 + (i % 3) * 2.2);
         const y = mountainHeight(x, z) + 2.1;
         return (
-          <group key={`pine-${i}`} position={[x, y, z]}>
-            <mesh castShadow><coneGeometry args={[1.5, 4.3, 5]} /><meshStandardMaterial color="#335d37" /></mesh>
-            <mesh position={[0, -1.9, 0]}><cylinderGeometry args={[0.22, 0.3, 1.2, 6]} /><meshStandardMaterial color="#59452f" /></mesh>
-          </group>
+          <RigidBody key={`pine-${i}`} type="fixed" colliders="hull" position={[x, y, z]}>
+            <group>
+              <mesh castShadow><coneGeometry args={[1.5, 4.3, 5]} /><meshStandardMaterial color="#335d37" /></mesh>
+              <mesh position={[0, -1.9, 0]}><cylinderGeometry args={[0.22, 0.3, 1.2, 6]} /><meshStandardMaterial color="#59452f" /></mesh>
+            </group>
+          </RigidBody>
         );
       })}
     </group>
