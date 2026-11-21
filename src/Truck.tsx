@@ -7,8 +7,9 @@ import { mountainHeight } from './HillTerrain';
 // The truck faces toward -Z, matching the direction of the mountain climb.
 const WHEEL_RADIUS = 0.36;
 const SUSPENSION_REST = 0.38;
-const SPRING_STIFFNESS = 18000;
-const SPRING_DAMPING = 1450;
+const SPRING_STIFFNESS = 13000;
+// Near-critical damping for an 850 kg chassis shared across four springs.
+const SPRING_DAMPING = 3400;
 const WHEELS = [
   { x: -0.64, z: -0.82, front: true },
   { x: 0.64, z: -0.82, front: true },
@@ -48,7 +49,7 @@ export default function Truck({ color = '#ff6b35', position = [0, 1.1, 0], activ
 
   useFrame((state, delta) => {
     const rb = body.current;
-    if (!rb) return;
+    if (!rb || !active) return;
 
     const dt = Math.min(delta, 1 / 30);
     const p = rb.translation();
@@ -96,24 +97,28 @@ export default function Truck({ color = '#ff6b35', position = [0, 1.1, 0], activ
 
       const gap = contact.y - groundY - WHEEL_RADIUS;
       const compression = THREE.MathUtils.clamp(SUSPENSION_REST - gap, 0, SUSPENSION_REST);
+      const wheelMountPoint = { x: contact.x, y: contact.y, z: contact.z };
       const groundPoint = { x: contact.x, y: groundY, z: contact.z };
       let longitudinalSpeed = 0;
       let gripScale = 1;
 
       if (gap < SUSPENSION_REST + 0.025) {
+        // Damping uses chassis velocity at the wheel mount, not the ground contact.
+        const mountVelocity = rb.velocityAtPoint(wheelMountPoint);
+        const normalSpeed = mountVelocity.x * normal.x + mountVelocity.y * normal.y + mountVelocity.z * normal.z;
+        // Tire slip is measured at the ground contact point.
         const pointVelocity = rb.velocityAtPoint(groundPoint);
-        const normalSpeed = pointVelocity.x * normal.x + pointVelocity.y * normal.y + pointVelocity.z * normal.z;
 
         // Progressive spring support and damping stop the chassis from bouncing uncontrollably.
         const springForce = THREE.MathUtils.clamp(
           SPRING_STIFFNESS * compression - SPRING_DAMPING * normalSpeed,
           0,
-          9000,
+          5200,
         );
         if (springForce > 0) {
           rb.applyImpulseAtPoint(
             { x: normal.x * springForce * dt, y: normal.y * springForce * dt, z: normal.z * springForce * dt },
-            groundPoint,
+            wheelMountPoint,
             true,
           );
         }
@@ -183,6 +188,7 @@ export default function Truck({ color = '#ff6b35', position = [0, 1.1, 0], activ
   return (
     <RigidBody
       ref={body}
+      type={active ? 'dynamic' : 'fixed'}
       colliders={false}
       position={spawn}
       mass={850}
