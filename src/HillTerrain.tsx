@@ -121,20 +121,16 @@ function Rock({ spec }: { spec: RockSpec }) {
 
 export default function HillTerrain() {
   const mountain = useMemo(createMountainGeometry, []);
-  const collisionMesh = useMemo(() => mountain.clone(), [mountain]);
   const trail = useMemo(createTrailGeometry, []);
 
   return (
     <group>
-      {/* Visible terrain is an ordinary render mesh, independent from the Rapier collider. */}
-      <mesh geometry={mountain} receiveShadow frustumCulled={false}>
-        <meshStandardMaterial color="#66894c" roughness={1} side={THREE.DoubleSide} />
-      </mesh>
-
-      {/* Physics receives its own copy of the exact same terrain vertices. */}
+      {/* The visible mountain mesh is also the fixed trimesh collider.
+          Keeping geometry and collision on the same mesh prevents invisible-mesh
+          filtering from leaving the truck with a road it can fall through. */}
       <RigidBody type="fixed" colliders="trimesh">
-        <mesh geometry={collisionMesh}>
-          <meshBasicMaterial visible={false} side={THREE.DoubleSide} />
+        <mesh geometry={mountain} receiveShadow frustumCulled={false}>
+          <meshStandardMaterial color="#66894c" roughness={1} side={THREE.DoubleSide} />
         </mesh>
       </RigidBody>
 
