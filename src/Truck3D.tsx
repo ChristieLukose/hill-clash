@@ -259,7 +259,6 @@ export default function Truck3D({
       colliders={false}
       position={spawn}
       rotation={[0, Math.PI / 2, 0]}
-      mass={MASS}
       linearDamping={0.025}
       angularDamping={0.75}
       friction={0.85}
@@ -270,6 +269,7 @@ export default function Truck3D({
       <CuboidCollider
         args={[1.38, 0.42, 0.72]}
         position={[0, 0.12, 0]}
+        mass={MASS}
         friction={0.85}
         restitution={0}
       />
