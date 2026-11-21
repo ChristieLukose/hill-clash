@@ -1,19 +1,34 @@
 import { useMemo } from 'react';
 import * as THREE from 'three';
-import { CuboidCollider, RigidBody } from '@react-three/rapier';
 
-/** Trail centre follows a gentle left/right line as it climbs toward -Z. */
+/** Centreline of the climbing trail, expressed in world X for a progress value. */
+export function roadCenterX(progress: number) {
+  const distance = Math.max(0, progress);
+  return Math.sin(distance * 0.075) * 4.2 + Math.sin(distance * 0.025) * 1.1;
+}
+
+/** Height of the centre of the playable road. Progress increases uphill toward -Z. */
+export function roadHeight(progress: number) {
+  const z = -progress;
+  return mountainHeight(roadCenterX(progress), z);
+}
+
+/** Finite-difference grade along the direction of travel. */
+export function roadSlope(progress: number) {
+  const sample = 0.08;
+  return (roadHeight(progress + sample) - roadHeight(progress - sample)) / (2 * sample);
+}
+
 function trailCenter(z: number) {
   const distance = Math.max(0, -z);
   return Math.sin(distance * 0.075) * 4.2 + Math.sin(distance * 0.025) * 1.1;
 }
 
-/** Shared world-space height function used by terrain, wheels and spawn placement. */
 export function mountainHeight(x: number, z: number) {
   const distance = Math.max(0, -z - 3);
   const climb = distance * 0.21 + 1.25 * Math.sin(distance * 0.22);
   const trailDistance = Math.abs(x - trailCenter(z));
-  const shoulder = Math.min(2.8, Math.max(0, trailDistance - 5.6) ** 2 * 0.018);
+  const shoulder = Math.min(2.8, Math.max(0, trailDistance - 5.6) ** 2 * 0.018;
   const roughness =
     Math.sin(x * 0.31 + z * 0.19) * 0.26 +
     Math.cos(z * 0.29) * 0.17 +
@@ -21,11 +36,6 @@ export function mountainHeight(x: number, z: number) {
   return climb + shoulder + roughness;
 }
 
-/**
- * Build the grid directly in world X/Y/Z coordinates.
- * This avoids rotating/editing a PlaneGeometry after its original bounds are computed.
- * Triangle winding is explicitly upward-facing.
- */
 function createMountainGeometry() {
   const width = 90;
   const depth = 150;
@@ -49,7 +59,6 @@ function createMountainGeometry() {
       const b = a + 1;
       const c = a + row;
       const d = c + 1;
-      // (a,c,b) and (b,c,d) have upward-facing normals for this X/Z grid.
       indices.push(a, c, b, b, c, d);
     }
   }
@@ -64,9 +73,9 @@ function createMountainGeometry() {
 }
 
 function createTrailGeometry() {
-  const segments = 150;
+  const segments = 180;
   const startZ = 14;
-  const endZ = -68;
+  const endZ = -72;
   const halfWidth = 4.25;
   const positions: number[] = [];
   const indices: number[] = [];
@@ -75,14 +84,11 @@ function createTrailGeometry() {
     const t = i / segments;
     const z = startZ + (endZ - startZ) * t;
     const center = trailCenter(z);
-    const leftX = center - halfWidth;
-    const rightX = center + halfWidth;
-    positions.push(leftX, mountainHeight(leftX, z) + 0.07, z);
-    positions.push(rightX, mountainHeight(rightX, z) + 0.07, z);
+    positions.push(center - halfWidth, mountainHeight(center - halfWidth, z) + 0.075, z);
+    positions.push(center + halfWidth, mountainHeight(center + halfWidth, z) + 0.075, z);
 
     if (i < segments) {
       const a = i * 2;
-      // Trail is double-sided too, but keep winding consistent with upward normals.
       indices.push(a, a + 2, a + 1, a + 1, a + 2, a + 3);
     }
   }
@@ -96,28 +102,14 @@ function createTrailGeometry() {
   return geometry;
 }
 
-type RockSpec = { z: number; side: number; size: number; rotation: number };
-const ROCKS: RockSpec[] = [
-  { z: -9, side: -1, size: 1.15, rotation: 0.4 },
-  { z: -17, side: 1, size: 1.45, rotation: 1.1 },
-  { z: -27, side: -1, size: 1.0, rotation: 0.8 },
-  { z: -35, side: 1, size: 1.2, rotation: 0.2 },
-  { z: -47, side: -1, size: 1.55, rotation: 1.4 },
-  { z: -58, side: 1, size: 1.25, rotation: 0.6 },
+const ROCKS = [
+  { progress: 9, side: -1, size: 1.15, rotation: 0.4 },
+  { progress: 17, side: 1, size: 1.45, rotation: 1.1 },
+  { progress: 27, side: -1, size: 1.0, rotation: 0.8 },
+  { progress: 35, side: 1, size: 1.2, rotation: 0.2 },
+  { progress: 47, side: -1, size: 1.55, rotation: 1.4 },
+  { progress: 58, side: 1, size: 1.25, rotation: 0.6 },
 ];
-
-function Rock({ spec }: { spec: RockSpec }) {
-  const x = trailCenter(spec.z) + spec.side * (5.1 + spec.size * 0.35);
-  const y = mountainHeight(x, spec.z) + spec.size * 0.72;
-  return (
-    <RigidBody type="fixed" colliders="hull" position={[x, y, spec.z]} rotation={[0.16, spec.rotation, 0.12]}>
-      <mesh castShadow receiveShadow>
-        <dodecahedronGeometry args={[spec.size, 1]} />
-        <meshStandardMaterial color="#77786f" roughness={1} />
-      </mesh>
-    </RigidBody>
-  );
-}
 
 export default function HillTerrain() {
   const mountain = useMemo(createMountainGeometry, []);
@@ -125,32 +117,37 @@ export default function HillTerrain() {
 
   return (
     <group>
-      {/* The visible mountain mesh is also the fixed trimesh collider.
-          Keeping geometry and collision on the same mesh prevents invisible-mesh
-          filtering from leaving the truck with a road it can fall through. */}
-      <RigidBody type="fixed" colliders="trimesh">
-        <mesh geometry={mountain} receiveShadow frustumCulled={false}>
-          <meshStandardMaterial color="#66894c" roughness={1} side={THREE.DoubleSide} />
-        </mesh>
-      </RigidBody>
-
-      {/* Dirt climbing lane follows the terrain height profile. */}
-      <mesh geometry={trail} receiveShadow frustumCulled={false} renderOrder={1}>
-        <meshStandardMaterial
-          color="#806b4d"
-          roughness={1}
-          side={THREE.DoubleSide}
-          polygonOffset
-          polygonOffsetFactor={-1}
-        />
+      <mesh geometry={mountain} receiveShadow frustumCulled={false}>
+        <meshStandardMaterial color="#66894c" roughness={1} side={THREE.DoubleSide} />
       </mesh>
-
-      {/* Fall recovery floor beneath the mountain. */}
-      <RigidBody type="fixed">
-        <CuboidCollider args={[55, 0.5, 60]} position={[0, -8, -25]} />
-      </RigidBody>
-
-      {ROCKS.map((spec, index) => <Rock key={`${spec.z}-${index}`} spec={spec} />)}
+      <mesh geometry={trail} receiveShadow frustumCulled={false} renderOrder={1}>
+        <meshStandardMaterial color="#806b4d" roughness={1} side={THREE.DoubleSide} polygonOffset polygonOffsetFactor={-1} />
+      </mesh>
+      {ROCKS.map((rock) => {
+        const x = roadCenterX(rock.progress) + rock.side * (5.1 + rock.size * 0.35);
+        const z = -rock.progress;
+        const y = mountainHeight(x, z) + rock.size * 0.72;
+        return (
+          <mesh key={rock.progress} position={[x, y, z]} rotation={[0.16, rock.rotation, 0.12]} castShadow receiveShadow>
+            <dodecahedronGeometry args={[rock.size, 1]} />
+            <meshStandardMaterial color="#77786f" roughness={1} />
+          </mesh>
+        );
+      })}
+      {Array.from({ length: 18 }, (_, i) => {
+        const progress = 5 + i * 4.2;
+        const z = -progress;
+        const center = roadCenterX(progress);
+        const side = i % 2 === 0 ? -1 : 1;
+        const x = center + side * (11 + (i % 3) * 2.2);
+        const y = mountainHeight(x, z) + 2.1;
+        return (
+          <group key={`pine-${i}`} position={[x, y, z]}>
+            <mesh castShadow><coneGeometry args={[1.5, 4.3, 5]} /><meshStandardMaterial color="#335d37" /></mesh>
+            <mesh position={[0, -1.9, 0]}><cylinderGeometry args={[0.22, 0.3, 1.2, 6]} /><meshStandardMaterial color="#59452f" /></mesh>
+          </group>
+        );
+      })}
     </group>
   );
 }
