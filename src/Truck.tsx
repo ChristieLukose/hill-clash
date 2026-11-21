@@ -4,12 +4,12 @@ import { CuboidCollider, RapierRigidBody, RigidBody } from '@react-three/rapier'
 import * as THREE from 'three';
 import { mountainHeight } from './HillTerrain';
 
-// The truck faces toward -Z, matching the direction of the mountain climb.
+const MASS = 850;
 const WHEEL_RADIUS = 0.36;
 const SUSPENSION_REST = 0.38;
-const SPRING_STIFFNESS = 13000;
-// Near-critical damping for an 850 kg chassis shared across four springs.
-const SPRING_DAMPING = 3400;
+const CHASSIS_CLEARANCE = 0.90;
+const VERTICAL_SPRING = 7500;
+const VERTICAL_DAMPING = 4300;
 const WHEELS = [
   { x: -0.64, z: -0.82, front: true },
   { x: 0.64, z: -0.82, front: true },
@@ -37,13 +37,13 @@ export default function Truck({ color = '#ff6b35', position = [0, 1.1, 0], activ
   const forward = useMemo(() => new THREE.Vector3(), []);
   const right = useMemo(() => new THREE.Vector3(), []);
   const normal = useMemo(() => new THREE.Vector3(), []);
-  const tangentForward = useMemo(() => new THREE.Vector3(), []);
-  const tangentSide = useMemo(() => new THREE.Vector3(), []);
+  const driveDirection = useMemo(() => new THREE.Vector3(), []);
+  const sideDirection = useMemo(() => new THREE.Vector3(), []);
+  const quat = useMemo(() => new THREE.Quaternion(), []);
   const localOffset = useMemo(() => new THREE.Vector3(), []);
-  const contact = useMemo(() => new THREE.Vector3(), []);
-  const rotation = useMemo(() => new THREE.Quaternion(), []);
+  const mountPoint = useMemo(() => new THREE.Vector3(), []);
   const spawn = useMemo<[number, number, number]>(
-    () => [position[0], mountainHeight(position[0], position[2]) + 0.90, position[2]],
+    () => [position[0], mountainHeight(position[0], position[2]) + CHASSIS_CLEARANCE, position[2]],
     [position[0], position[2]],
   );
 
@@ -51,21 +51,24 @@ export default function Truck({ color = '#ff6b35', position = [0, 1.1, 0], activ
     const rb = body.current;
     if (!rb || !active) return;
 
-    const dt = Math.min(delta, 1 / 30);
+    const dt = Math.min(delta, 1 / 60);
     const p = rb.translation();
-    const q = rb.rotation();
-    rotation.set(q.x, q.y, q.z, q.w);
-    forward.set(0, 0, -1).applyQuaternion(rotation);
-    right.set(1, 0, 0).applyQuaternion(rotation);
+    const rotation = rb.rotation();
+    quat.set(rotation.x, rotation.y, rotation.z, rotation.w);
+    forward.set(0, 0, -1).applyQuaternion(quat);
+    right.set(1, 0, 0).applyQuaternion(quat);
 
-    const throttle = active
-      ? (keys.has('w') || keys.has('arrowup') ? 1 : keys.has('s') || keys.has('arrowdown') ? -0.55 : 0)
-      : 0;
-    const steering = active
-      ? (keys.has('a') || keys.has('arrowleft') ? 1 : 0) - (keys.has('d') || keys.has('arrowright') ? 1 : 0)
-      : 0;
+    const velocity = rb.linvel();
+    const speed = Math.hypot(velocity.x, velocity.z);
+    const throttle = keys.has('w') || keys.has('arrowup')
+      ? 1
+      : keys.has('s') || keys.has('arrowdown')
+        ? -0.55
+        : 0;
+    const steering = (keys.has('a') || keys.has('arrowleft') ? 1 : 0)
+      - (keys.has('d') || keys.has('arrowright') ? 1 : 0);
 
-    if (active && keys.has('r')) {
+    if (keys.has('r')) {
       rb.setTranslation({ x: spawn[0], y: spawn[1], z: spawn[2] }, true);
       rb.setRotation({ x: 0, y: 0, z: 0, w: 1 }, true);
       rb.setLinvel({ x: 0, y: 0, z: 0 }, true);
@@ -74,115 +77,82 @@ export default function Truck({ color = '#ff6b35', position = [0, 1.1, 0], activ
       keys.delete('r');
     }
 
-    const velocity = rb.linvel();
-    const speed = Math.hypot(velocity.x, velocity.z);
+    // One critically damped chassis support spring replaces four competing
+    // hard spring impulses. It acts through the centre of mass, so it cannot
+    // kick the truck into an unwanted pitch or roll.
+    const groundY = mountainHeight(p.x, p.z);
+    const targetY = groundY + CHASSIS_CLEARANCE;
+    const heightError = targetY - p.y;
+    const supportForce = THREE.MathUtils.clamp(
+      MASS * 9.81 + heightError * VERTICAL_SPRING - velocity.y * VERTICAL_DAMPING,
+      0,
+      MASS * 9.81 * 1.8,
+    );
+    rb.applyImpulse({ x: 0, y: supportForce * dt, z: 0 }, true);
 
-    WHEELS.forEach((wheel, index) => {
-      // Wheel anchor in truck-local space, transformed into world space.
-      localOffset.set(wheel.x, -0.16, wheel.z).applyQuaternion(rotation);
-      contact.set(p.x + localOffset.x, p.y + localOffset.y, p.z + localOffset.z);
+    // Tire drive and lateral grip use the terrain slope, but act through the
+    // chassis centre to avoid four independently applied forces destabilizing it.
+    const sample = 0.18;
+    const slopeX = (
+      mountainHeight(p.x + sample, p.z) - mountainHeight(p.x - sample, p.z)
+    ) / (2 * sample);
+    const slopeZ = (
+      mountainHeight(p.x, p.z + sample) - mountainHeight(p.x, p.z - sample)
+    ) / (2 * sample);
+    normal.set(-slopeX, 1, -slopeZ).normalize();
 
-      // Terrain gradient provides a surface normal for spring and tire forces.
-      const groundY = mountainHeight(contact.x, contact.z);
-      const sample = 0.16;
-      const slopeX = (
-        mountainHeight(contact.x + sample, contact.z) -
-        mountainHeight(contact.x - sample, contact.z)
-      ) / (2 * sample);
-      const slopeZ = (
-        mountainHeight(contact.x, contact.z + sample) -
-        mountainHeight(contact.x, contact.z - sample)
-      ) / (2 * sample);
-      normal.set(-slopeX, 1, -slopeZ).normalize();
+    driveDirection.copy(forward).addScaledVector(normal, -forward.dot(normal)).normalize();
+    sideDirection.copy(right).addScaledVector(normal, -right.dot(normal)).normalize();
 
-      const gap = contact.y - groundY - WHEEL_RADIUS;
-      const compression = THREE.MathUtils.clamp(SUSPENSION_REST - gap, 0, SUSPENSION_REST);
-      const wheelMountPoint = { x: contact.x, y: contact.y, z: contact.z };
-      const groundPoint = { x: contact.x, y: groundY, z: contact.z };
-      let longitudinalSpeed = 0;
-      let gripScale = 1;
+    const grip = p.z < -38 ? 0.40 : p.z < -20 ? 0.60 : 0.82;
+    const forwardSpeed = velocity.x * driveDirection.x + velocity.y * driveDirection.y + velocity.z * driveDirection.z;
+    const sideSpeed = velocity.x * sideDirection.x + velocity.y * sideDirection.y + velocity.z * sideDirection.z;
 
-      if (gap < SUSPENSION_REST + 0.025) {
-        // Damping uses chassis velocity at the wheel mount, not the ground contact.
-        const mountVelocity = rb.velocityAtPoint(wheelMountPoint);
-        const normalSpeed = mountVelocity.x * normal.x + mountVelocity.y * normal.y + mountVelocity.z * normal.z;
-        // Tire slip is measured at the ground contact point.
-        const pointVelocity = rb.velocityAtPoint(groundPoint);
+    const requestedDrive = throttle * 5800 - forwardSpeed * 230;
+    const maxTraction = grip * MASS * 9.81 * 0.82;
+    const appliedDrive = THREE.MathUtils.clamp(requestedDrive, -maxTraction, maxTraction);
+    const appliedSide = THREE.MathUtils.clamp(-sideSpeed * 1200, -maxTraction * 0.7, maxTraction * 0.7);
+    rb.applyImpulse({
+      x: (driveDirection.x * appliedDrive + sideDirection.x * appliedSide) * dt,
+      y: (driveDirection.y * appliedDrive + sideDirection.y * appliedSide) * dt,
+      z: (driveDirection.z * appliedDrive + sideDirection.z * appliedSide) * dt,
+    }, true);
 
-        // Progressive spring support and damping stop the chassis from bouncing uncontrollably.
-        const springForce = THREE.MathUtils.clamp(
-          SPRING_STIFFNESS * compression - SPRING_DAMPING * normalSpeed,
-          0,
-          5200,
-        );
-        if (springForce > 0) {
-          rb.applyImpulseAtPoint(
-            { x: normal.x * springForce * dt, y: normal.y * springForce * dt, z: normal.z * springForce * dt },
-            wheelMountPoint,
-            true,
-          );
-        }
-
-        tangentForward.copy(forward).addScaledVector(normal, -forward.dot(normal)).normalize();
-        tangentSide.copy(right).addScaledVector(normal, -right.dot(normal)).normalize();
-
-        // Grip progressively reduces on the loose upper ridge.
-        const surfaceGrip = contact.z < -38 ? 0.42 : contact.z < -20 ? 0.62 : 0.84;
-        const normalLoad = (850 * 9.81 * Math.max(0.3, normal.y)) / 4;
-        const maxTireForce = surfaceGrip * normalLoad;
-        longitudinalSpeed =
-          pointVelocity.x * tangentForward.x +
-          pointVelocity.y * tangentForward.y +
-          pointVelocity.z * tangentForward.z;
-        const lateralSpeed =
-          pointVelocity.x * tangentSide.x +
-          pointVelocity.y * tangentSide.y +
-          pointVelocity.z * tangentSide.z;
-
-        const driveRequest = throttle * 1550 - longitudinalSpeed * 80;
-        const sideRequest = -lateralSpeed * 1350;
-        const requestedForce = Math.hypot(driveRequest, sideRequest);
-        gripScale = requestedForce > maxTireForce ? maxTireForce / requestedForce : 1;
-
-        const driveForce = driveRequest * gripScale;
-        const sideForce = sideRequest * gripScale;
-        rb.applyImpulseAtPoint(
-          {
-            x: (tangentForward.x * driveForce + tangentSide.x * sideForce) * dt,
-            y: (tangentForward.y * driveForce + tangentSide.y * sideForce) * dt,
-            z: (tangentForward.z * driveForce + tangentSide.z * sideForce) * dt,
-          },
-          groundPoint,
-          true,
-        );
-        wheelSpin.current[index] += (
-          longitudinalSpeed / WHEEL_RADIUS +
-          (1 - gripScale) * throttle * 16
-        ) * dt;
-      } else {
-        wheelSpin.current[index] += throttle * 10 * dt;
+    if (keys.has(' ')) {
+      const brake = THREE.MathUtils.clamp(speed * MASS * 1.8, 0, 9000);
+      const horizontal = new THREE.Vector3(velocity.x, 0, velocity.z);
+      if (horizontal.lengthSq() > 0.01) {
+        horizontal.normalize().multiplyScalar(-brake * dt);
+        rb.applyImpulse({ x: horizontal.x, y: 0, z: horizontal.z }, true);
       }
+    }
 
+    if (steering !== 0 && speed > 0.2) {
+      rb.applyTorqueImpulse({ x: 0, y: steering * (130 + Math.min(speed, 14) * 24) * dt, z: 0 }, true);
+    }
+
+    // Wheel compression is visual only in this first stable pass. The chassis
+    // support above controls vertical movement; each wheel follows local ground height.
+    WHEELS.forEach((wheel, index) => {
+      localOffset.set(wheel.x, -0.16, wheel.z).applyQuaternion(quat);
+      mountPoint.set(p.x + localOffset.x, p.y + localOffset.y, p.z + localOffset.z);
+      const wheelGround = mountainHeight(mountPoint.x, mountPoint.z);
+      const wheelGap = mountPoint.y - wheelGround - WHEEL_RADIUS;
+      const compression = THREE.MathUtils.clamp(SUSPENSION_REST - wheelGap, 0, SUSPENSION_REST);
       const visual = wheelGroups.current[index];
+
+      wheelSpin.current[index] += (forwardSpeed / WHEEL_RADIUS + throttle * (1 - grip) * 9) * dt;
       if (visual) {
         visual.position.y = -0.16 - SUSPENSION_REST + compression;
         visual.rotation.y = wheel.front ? steering * 0.28 : 0;
-        const rollingGroup = visual.children[0] as THREE.Group | undefined;
-        if (rollingGroup) rollingGroup.rotation.x = wheelSpin.current[index];
+        const rolling = visual.children[0] as THREE.Group | undefined;
+        if (rolling) rolling.rotation.x = wheelSpin.current[index];
       }
     });
 
-    // Steering torque is modest at low speed and builds as the truck moves.
-    if (steering !== 0 && speed > 0.15) {
-      rb.applyTorqueImpulse({ x: 0, y: steering * (110 + Math.min(speed, 14) * 24) * dt, z: 0 }, true);
-    }
-
-    if (active) {
-      // A higher, steeper chase camera keeps the trail and wheel contact area in view.
-      const cameraPosition = new THREE.Vector3(p.x, p.y + 6.2, p.z + 8.5);
-      state.camera.position.lerp(cameraPosition, 0.09);
-      state.camera.lookAt(p.x + forward.x * 1.5, p.y + 0.15, p.z + forward.z * 4.2);
-    }
+    const cameraPosition = new THREE.Vector3(p.x, p.y + 5.6, p.z + 8.5);
+    state.camera.position.lerp(cameraPosition, 0.085);
+    state.camera.lookAt(p.x, p.y + 0.1, p.z - 4.2);
   });
 
   return (
@@ -191,16 +161,15 @@ export default function Truck({ color = '#ff6b35', position = [0, 1.1, 0], activ
       type={active ? 'dynamic' : 'fixed'}
       colliders={false}
       position={spawn}
-      mass={850}
-      linearDamping={0.08}
-      angularDamping={1.4}
-      friction={0.8}
-      restitution={0.01}
+      mass={MASS}
+      linearDamping={0.12}
+      angularDamping={2.0}
+      friction={0.7}
+      restitution={0}
       ccd
     >
       <CuboidCollider args={[0.62, 0.46, 1.12]} position={[0, 0.47, 0]} />
       <group>
-        {/* Chassis and cab now share the same forward axis as the climbing trail (-Z). */}
         <mesh castShadow position={[0, 0.38, 0]}>
           <boxGeometry args={[1.18, 0.55, 2.3]} />
           <meshStandardMaterial color={color} roughness={0.45} metalness={0.22} />
@@ -223,15 +192,13 @@ export default function Truck({ color = '#ff6b35', position = [0, 1.1, 0], activ
           <boxGeometry args={[0.76, 0.22, 0.08]} />
           <meshStandardMaterial color="#242b31" />
         </mesh>
-
         {WHEELS.map((wheel, index) => (
           <group
             key={`${wheel.x}-${wheel.z}`}
             ref={(node) => { wheelGroups.current[index] = node; }}
-            position={[wheel.x, -0.16, wheel.z]}
+            position={[wheel.x, -0.54, wheel.z]}
           >
             <group>
-              {/* Wheel cylinder axis points across the axle (X). */}
               <mesh castShadow rotation={[0, 0, Math.PI / 2]}>
                 <cylinderGeometry args={[WHEEL_RADIUS, WHEEL_RADIUS, 0.28, 20]} />
                 <meshStandardMaterial color="#171a21" roughness={0.96} />
