@@ -161,10 +161,11 @@ function integrate(state: ModelState, throttle: number, steering: number, brakin
     const engineRequest = ENGINE_FORCE * speedFade * throttle * axle.driveShare;
     const gravityHoldRequest = MASS * 9.81 * tangentHeight * axle.driveShare;
     const rollingRequest = -axleSpeed * 260;
-    const brakeRequest = braking
-      ? -Math.sign(Math.abs(axleSpeed) < 0.04 ? gravityHoldRequest : axleSpeed) * BRAKE_FORCE * axle.driveShare
-      : 0;
-    const requestedTraction = engineRequest + gravityHoldRequest + rollingRequest + brakeRequest;
+    const requestedTraction = braking
+      ? (Math.abs(axleSpeed) < 0.04
+          ? gravityHoldRequest
+          : gravityHoldRequest - Math.sign(axleSpeed) * BRAKE_FORCE * axle.driveShare)
+      : engineRequest + gravityHoldRequest + rollingRequest;
 
     const terrainGrip = axleProgress > 38 ? 0.62 : axleProgress > 20 ? 0.78 : 0.94;
     const tractionLimit = terrainGrip * springForce;
