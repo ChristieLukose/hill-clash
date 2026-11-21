@@ -24,7 +24,7 @@ const emptyHud: VehicleHud = {
 /** Static menu showcase model; gameplay trucks use the full Rapier 3D controller. */
 function MenuTruck() {
   return (
-    <group position={[roadCenterX(2), roadHeight(2) + 1.0, -2]} rotation={[0, Math.PI / 2, 0]}>
+    <group position={[roadCenterX(2), roadHeight(2) + 1.25, -2]} rotation={[0, Math.PI / 2, 0]}>
       <mesh castShadow position={[0, 0.18, 0]}>
         <boxGeometry args={[2.78, 0.58, 1.42]} />
         <meshStandardMaterial color="#f5a623" roughness={0.42} metalness={0.24} />
@@ -38,7 +38,7 @@ function MenuTruck() {
         <meshStandardMaterial color="#94d8f4" transparent opacity={0.72} />
       </mesh>
       {[1, -1].flatMap((side) => [1.02, -1.02].map((x) => (
-        <group key={`${side}-${x}`} position={[x, -0.24, side * 0.78]}>
+        <group key={`${side}-${x}`} position={[x, -0.82, side * 0.78]}>
           <mesh castShadow rotation={[Math.PI / 2, 0, 0]}>
             <cylinderGeometry args={[0.43, 0.43, 0.32, 22]} />
             <meshStandardMaterial color="#171a21" roughness={0.95} />
