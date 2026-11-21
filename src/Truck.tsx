@@ -1,15 +1,13 @@
 import { useMemo, useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
-import { CuboidCollider, RapierRigidBody, RigidBody } from '@react-three/rapier';
+import { BallCollider, CuboidCollider, RapierRigidBody, RigidBody } from '@react-three/rapier';
 import * as THREE from 'three';
 import { mountainHeight } from './HillTerrain';
 
 const MASS = 850;
 const WHEEL_RADIUS = 0.36;
-const SUSPENSION_REST = 0.38;
+const WHEEL_LOCAL_Y = -0.54;
 const CHASSIS_CLEARANCE = 0.90;
-const VERTICAL_SPRING = 7500;
-const VERTICAL_DAMPING = 4300;
 const WHEELS = [
   { x: -0.64, z: -0.82, front: true },
   { x: 0.64, z: -0.82, front: true },
@@ -36,16 +34,17 @@ export default function Truck({ color = '#ff6b35', position = [0, 1.1, 0], activ
   const wheelSpin = useRef([0, 0, 0, 0]);
   const forward = useMemo(() => new THREE.Vector3(), []);
   const right = useMemo(() => new THREE.Vector3(), []);
-  const normal = useMemo(() => new THREE.Vector3(), []);
   const driveDirection = useMemo(() => new THREE.Vector3(), []);
   const sideDirection = useMemo(() => new THREE.Vector3(), []);
-  const quat = useMemo(() => new THREE.Quaternion(), []);
-  const localOffset = useMemo(() => new THREE.Vector3(), []);
-  const mountPoint = useMemo(() => new THREE.Vector3(), []);
-  const spawn = useMemo<[number, number, number]>(
-    () => [position[0], mountainHeight(position[0], position[2]) + CHASSIS_CLEARANCE, position[2]],
-    [position[0], position[2]],
-  );
+  const normal = useMemo(() => new THREE.Vector3(), []);
+  const spawn = useMemo<[number, number, number]>(() => {
+    // Put every tire just above its local road height so Rapier settles it onto
+    // the terrain on the first physics steps rather than starting penetrated.
+    const highestWheelGround = Math.max(
+      ...WHEELS.map((wheel) => mountainHeight(position[0] + wheel.x, position[2] + wheel.z)),
+    );
+    return [position[0], highestWheelGround - WHEEL_LOCAL_Y + WHEEL_RADIUS + 0.025, position[2]];
+  }, [position[0], position[2]]);
 
   useFrame((state, delta) => {
     const rb = body.current;
@@ -54,7 +53,7 @@ export default function Truck({ color = '#ff6b35', position = [0, 1.1, 0], activ
     const dt = Math.min(delta, 1 / 60);
     const p = rb.translation();
     const rotation = rb.rotation();
-    quat.set(rotation.x, rotation.y, rotation.z, rotation.w);
+    const quat = new THREE.Quaternion(rotation.x, rotation.y, rotation.z, rotation.w);
     forward.set(0, 0, -1).applyQuaternion(quat);
     right.set(1, 0, 0).applyQuaternion(quat);
 
@@ -77,21 +76,8 @@ export default function Truck({ color = '#ff6b35', position = [0, 1.1, 0], activ
       keys.delete('r');
     }
 
-    // One critically damped chassis support spring replaces four competing
-    // hard spring impulses. It acts through the centre of mass, so it cannot
-    // kick the truck into an unwanted pitch or roll.
-    const groundY = mountainHeight(p.x, p.z);
-    const targetY = groundY + CHASSIS_CLEARANCE;
-    const heightError = targetY - p.y;
-    const supportForce = THREE.MathUtils.clamp(
-      MASS * 9.81 + heightError * VERTICAL_SPRING - velocity.y * VERTICAL_DAMPING,
-      0,
-      MASS * 9.81 * 1.8,
-    );
-    rb.applyImpulse({ x: 0, y: supportForce * dt, z: 0 }, true);
-
-    // Tire drive and lateral grip use the terrain slope, but act through the
-    // chassis centre to avoid four independently applied forces destabilizing it.
+    // Keep drive and lateral forces horizontal. The road collider and gravity
+    // provide the vertical reaction; propulsion must not launch the truck uphill.
     const sample = 0.18;
     const slopeX = (
       mountainHeight(p.x + sample, p.z) - mountainHeight(p.x - sample, p.z)
@@ -101,58 +87,49 @@ export default function Truck({ color = '#ff6b35', position = [0, 1.1, 0], activ
     ) / (2 * sample);
     normal.set(-slopeX, 1, -slopeZ).normalize();
 
-    driveDirection.copy(forward).addScaledVector(normal, -forward.dot(normal)).normalize();
-    sideDirection.copy(right).addScaledVector(normal, -right.dot(normal)).normalize();
+    driveDirection.set(forward.x, 0, forward.z).normalize();
+    sideDirection.set(right.x, 0, right.z).normalize();
 
     const grip = p.z < -38 ? 0.40 : p.z < -20 ? 0.60 : 0.82;
-    const forwardSpeed = velocity.x * driveDirection.x + velocity.y * driveDirection.y + velocity.z * driveDirection.z;
-    const sideSpeed = velocity.x * sideDirection.x + velocity.y * sideDirection.y + velocity.z * sideDirection.z;
-
+    const forwardSpeed = velocity.x * driveDirection.x + velocity.z * driveDirection.z;
+    const sideSpeed = velocity.x * sideDirection.x + velocity.z * sideDirection.z;
     const requestedDrive = throttle * 5800 - forwardSpeed * 230;
     const maxTraction = grip * MASS * 9.81 * 0.82;
     const appliedDrive = THREE.MathUtils.clamp(requestedDrive, -maxTraction, maxTraction);
     const appliedSide = THREE.MathUtils.clamp(-sideSpeed * 1200, -maxTraction * 0.7, maxTraction * 0.7);
+
     rb.applyImpulse({
       x: (driveDirection.x * appliedDrive + sideDirection.x * appliedSide) * dt,
-      y: (driveDirection.y * appliedDrive + sideDirection.y * appliedSide) * dt,
+      y: 0,
       z: (driveDirection.z * appliedDrive + sideDirection.z * appliedSide) * dt,
     }, true);
 
     if (keys.has(' ')) {
       const brake = THREE.MathUtils.clamp(speed * MASS * 1.8, 0, 9000);
-      const horizontal = new THREE.Vector3(velocity.x, 0, velocity.z);
-      if (horizontal.lengthSq() > 0.01) {
-        horizontal.normalize().multiplyScalar(-brake * dt);
-        rb.applyImpulse({ x: horizontal.x, y: 0, z: horizontal.z }, true);
+      if (speed > 0.01) {
+        rb.applyImpulse({ x: -velocity.x / speed * brake * dt, y: 0, z: -velocity.z / speed * brake * dt }, true);
       }
     }
 
     if (steering !== 0 && speed > 0.2) {
-      rb.applyTorqueImpulse({ x: 0, y: steering * (130 + Math.min(speed, 14) * 24) * dt, z: 0 }, true);
+      rb.applyTorqueImpulse({ x: 0, y: steering * (110 + Math.min(speed, 14) * 24) * dt, z: 0 }, true);
     }
 
-    // Wheel compression is visual only in this first stable pass. The chassis
-    // support above controls vertical movement; each wheel follows local ground height.
+    // Wheels are real Rapier contact colliders. Visual spin mirrors vehicle speed;
+    // suspension joints can be added once stable four-wheel contact is verified.
     WHEELS.forEach((wheel, index) => {
-      localOffset.set(wheel.x, -0.16, wheel.z).applyQuaternion(quat);
-      mountPoint.set(p.x + localOffset.x, p.y + localOffset.y, p.z + localOffset.z);
-      const wheelGround = mountainHeight(mountPoint.x, mountPoint.z);
-      const wheelGap = mountPoint.y - wheelGround - WHEEL_RADIUS;
-      const compression = THREE.MathUtils.clamp(SUSPENSION_REST - wheelGap, 0, SUSPENSION_REST);
       const visual = wheelGroups.current[index];
-
-      wheelSpin.current[index] += (forwardSpeed / WHEEL_RADIUS + throttle * (1 - grip) * 9) * dt;
+      wheelSpin.current[index] += (forwardSpeed / WHEEL_RADIUS + throttle * (1 - grip) * 7) * dt;
       if (visual) {
-        visual.position.y = -0.16 - SUSPENSION_REST + compression;
-        visual.rotation.y = wheel.front ? steering * 0.28 : 0;
+        visual.rotation.y = wheel.front ? steering * 0.22 : 0;
         const rolling = visual.children[0] as THREE.Group | undefined;
         if (rolling) rolling.rotation.x = wheelSpin.current[index];
       }
     });
 
-    const cameraPosition = new THREE.Vector3(p.x, p.y + 5.6, p.z + 8.5);
+    const cameraPosition = new THREE.Vector3(p.x, p.y + 5.2, p.z + 8.4);
     state.camera.position.lerp(cameraPosition, 0.085);
-    state.camera.lookAt(p.x, p.y + 0.1, p.z - 4.2);
+    state.camera.lookAt(p.x, p.y + 0.35, p.z - 3.8);
   });
 
   return (
@@ -163,12 +140,23 @@ export default function Truck({ color = '#ff6b35', position = [0, 1.1, 0], activ
       position={spawn}
       mass={MASS}
       linearDamping={0.12}
-      angularDamping={2.0}
-      friction={0.7}
+      angularDamping={2.8}
+      friction={0.9}
       restitution={0}
       ccd
     >
-      <CuboidCollider args={[0.62, 0.46, 1.12]} position={[0, 0.47, 0]} />
+      {/* Chassis collider sits above the four tire contact points. */}
+      <CuboidCollider args={[0.62, 0.46, 1.12]} position={[0, 0.47, 0]} friction={0.8} restitution={0} />
+      {WHEELS.map((wheel) => (
+        <BallCollider
+          key={`${wheel.x}-${wheel.z}`}
+          args={[WHEEL_RADIUS]}
+          position={[wheel.x, WHEEL_LOCAL_Y, wheel.z]}
+          friction={1.35}
+          restitution={0}
+        />
+      ))}
+
       <group>
         <mesh castShadow position={[0, 0.38, 0]}>
           <boxGeometry args={[1.18, 0.55, 2.3]} />
@@ -196,7 +184,7 @@ export default function Truck({ color = '#ff6b35', position = [0, 1.1, 0], activ
           <group
             key={`${wheel.x}-${wheel.z}`}
             ref={(node) => { wheelGroups.current[index] = node; }}
-            position={[wheel.x, -0.54, wheel.z]}
+            position={[wheel.x, WHEEL_LOCAL_Y, wheel.z]}
           >
             <group>
               <mesh castShadow rotation={[0, 0, Math.PI / 2]}>
