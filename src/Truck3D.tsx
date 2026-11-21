@@ -8,7 +8,7 @@ import {
   useRapier,
 } from '@react-three/rapier';
 import * as THREE from 'three';
-import { roadCenterX, roadHeight } from './HillTerrain';
+import { mountainHeight, roadCenterX, roadHeight } from './HillTerrain';
 
 const MASS = 1250;
 const WHEEL_RADIUS = 0.43;
@@ -120,7 +120,7 @@ export default function Truck3D({
     // to reach the terrain and the vehicle has zero suspension load/traction.
     const highestWheelGround = Math.max(
       ...WHEELS.map((wheel) =>
-        roadHeight(progress + wheel.x) + (roadCenterX(progress + wheel.x) + wheel.z + laneStart - roadCenterX(progress + wheel.x)) * 0,
+        mountainHeight(centerX + wheel.z, -(progress + wheel.x)),
       ),
     );
     const hubToGroundReach = WHEEL_REST_LENGTH + WHEEL_RADIUS;
