@@ -81,7 +81,7 @@ export default function App() {
       ) : (
         <section className="game-panel">
           <div className="game-title">
-            {mode === 'split' ? 'LOCAL SPLIT SCREEN — PREVIEW' : 'SOLO CLIMB — PREVIEW'}
+            {mode === 'split' ? 'LOCAL SPLIT SCREEN — PREVIEW' : 'SOLO CLIMB'}
           </div>
           <div className="controls-note">
             DRIVE: W / ↑ · STEER: A / D · REVERSE: S / ↓ · HANDBRAKE: SPACE · RESET: R
