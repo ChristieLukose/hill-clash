@@ -411,6 +411,80 @@ function FinishGate({ terrainType }: { terrainType: TerrainType }) {
   );
 }
 
+const ROCK_OUTCROPS = [
+  { progress: 7, side: -1, size: 2.2, rotation: 0.25 },
+  { progress: 18, side: 1, size: 2.8, rotation: 0.9 },
+  { progress: 30, side: -1, size: 2.5, rotation: 1.4 },
+  { progress: 40, side: 1, size: 3.0, rotation: 0.6 },
+  { progress: 55, side: -1, size: 2.4, rotation: 1.8 },
+  { progress: 65, side: 1, size: 2.8, rotation: 0.4 },
+];
+
+function RockOutcrops({ terrainType }: { terrainType: TerrainType }) {
+  const style = TERRAIN_STYLES[terrainType];
+  return (
+    <group>
+      {ROCK_OUTCROPS.map((rock) => {
+        const z = -rock.progress;
+        const x = roadCenterX(rock.progress, terrainType) + rock.side * (13.5 + rock.size * 0.35);
+        const y = mountainHeight(x, z, terrainType);
+        return (
+          <group key={rock.progress} position={[x, y, z]} rotation={[0, rock.rotation, 0]}>
+            <mesh castShadow receiveShadow position={[0, rock.size * 0.58, 0]}>
+              <dodecahedronGeometry args={[rock.size, 1]} />
+              <meshStandardMaterial color={style.rock} roughness={1} />
+            </mesh>
+            <mesh castShadow receiveShadow position={[rock.side * rock.size * 0.72, rock.size * 0.34, -rock.size * 0.42]}>
+              <dodecahedronGeometry args={[rock.size * 0.64, 1]} />
+              <meshStandardMaterial color={style.rock} roughness={1} />
+            </mesh>
+            <mesh castShadow receiveShadow position={[-rock.side * rock.size * 0.58, rock.size * 0.28, rock.size * 0.52]}>
+              <dodecahedronGeometry args={[rock.size * 0.48, 1]} />
+              <meshStandardMaterial color={style.rock} roughness={1} />
+            </mesh>
+          </group>
+        );
+      })}
+    </group>
+  );
+}
+
+function TurnMarker({ progress, side, terrainType, direction }: {
+  progress: number;
+  side: -1 | 1;
+  terrainType: TerrainType;
+  direction: 'LEFT' | 'RIGHT';
+}) {
+  const center = roadCenterX(progress, terrainType);
+  const halfWidth = roadHalfWidth(progress, terrainType);
+  const x = center + side * (halfWidth + 1.65);
+  const z = -progress;
+  const y = mountainHeight(x, z, terrainType);
+  const heading = roadHeading(progress, terrainType);
+  return (
+    <group position={[x, y, z]} rotation={[0, heading, 0]}>
+      <mesh position={[0, 0.72, 0]} castShadow>
+        <cylinderGeometry args={[0.07, 0.09, 1.44, 7]} />
+        <meshStandardMaterial color="#5c4933" roughness={0.9} />
+      </mesh>
+      <mesh position={[0, 1.48, 0]} castShadow>
+        <boxGeometry args={[0.85, 0.62, 0.12]} />
+        <meshStandardMaterial color="#f4eee0" roughness={0.65} />
+      </mesh>
+      <Html position={[0, 1.48, 0.08]} center distanceFactor={18} style={{ pointerEvents: 'none' }}>
+        <div style={{
+          color: '#b53d32',
+          font: '900 21px Inter, sans-serif',
+          lineHeight: 1,
+          textShadow: '0 1px 0 #fff',
+        }}>
+          {direction === 'LEFT' ? '↶' : '↷'}
+        </div>
+      </Html>
+    </group>
+  );
+}
+
 const ROCKS = [
   { progress: 9, side: -1, size: 1.15, rotation: 0.4 },
   { progress: 17, side: 1, size: 1.45, rotation: 1.1 },
@@ -443,6 +517,11 @@ export default function HillTerrain({ terrainType = 'mountain' }: { terrainType?
       <CheckpointGate progress={22} label="CHECKPOINT 01" terrainType={terrainType} />
       <CheckpointGate progress={48} label="CHECKPOINT 02" terrainType={terrainType} />
       <FinishGate terrainType={terrainType} />
+      <RockOutcrops terrainType={terrainType} />
+      <TurnMarker progress={15} side={-1} terrainType={terrainType} direction="RIGHT" />
+      <TurnMarker progress={33} side={1} terrainType={terrainType} direction="LEFT" />
+      <TurnMarker progress={52} side={-1} terrainType={terrainType} direction="RIGHT" />
+      <TurnMarker progress={63} side={1} terrainType={terrainType} direction="LEFT" />
       {ROCKS.map((rock) => {
         const x = roadCenterX(rock.progress, terrainType) + rock.side * (5.1 + rock.size * 0.35);
         const z = -rock.progress;
