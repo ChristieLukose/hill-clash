@@ -450,3 +450,344 @@
   .hud-main strong { font-size: 34px; }
   .topbar { padding: 18px 5vw; }
 }
+
+
+/* Online multiplayer lobby, vehicle nameplates, and race overlays */
+.lobby-background {
+  position: absolute;
+  inset: 0;
+  opacity: 0.72;
+}
+.lobby-background::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, rgba(9,15,25,.72), rgba(9,15,25,.28)),
+              linear-gradient(0deg, rgba(9,15,25,.55), transparent 52%);
+  pointer-events: none;
+}
+.online-lobby-panel {
+  position: relative;
+  z-index: 4;
+  width: min(470px, calc(100% - 28px));
+  max-height: calc(100vh - 185px);
+  overflow-y: auto;
+  margin: 3vh auto 80px;
+  padding: 25px 28px 20px;
+  border: 1px solid #ffffff36;
+  border-radius: 20px;
+  background: rgba(15, 27, 42, 0.94);
+  box-shadow: 0 24px 70px #07111c70;
+  backdrop-filter: blur(16px);
+}
+.online-panel-eyebrow {
+  color: #ffc43a;
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: 2px;
+}
+.online-lobby-panel h2,
+.race-result-card h2 {
+  margin: 7px 0 8px;
+  color: #f5f8fb;
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 37px;
+  line-height: 1;
+  letter-spacing: 0.5px;
+}
+.online-panel-copy {
+  margin: 0 0 15px;
+  color: #b7c7d5;
+  font-size: 12px;
+  line-height: 1.55;
+}
+.online-connection {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin: 0 0 17px;
+  color: #aec1d1;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 1px;
+}
+.connection-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #ff9c52;
+  box-shadow: 0 0 8px #ff9c5266;
+}
+.connection-dot.connected {
+  background: #60d995;
+  box-shadow: 0 0 8px #60d99580;
+}
+.online-label {
+  display: block;
+  margin: 12px 0 6px;
+  color: #adc0d0;
+  font-size: 9px;
+  font-weight: 900;
+  letter-spacing: 1.3px;
+}
+.online-input {
+  display: block;
+  width: 100%;
+  height: 45px;
+  padding: 0 13px;
+  border: 1px solid #526374;
+  border-radius: 9px;
+  outline: none;
+  background: #0c1928;
+  color: #f7f9fb;
+  font: 700 13px Inter, sans-serif;
+}
+.online-input:focus {
+  border-color: #ffc43a;
+  box-shadow: 0 0 0 2px #ffc43a25;
+}
+.online-input::placeholder { color: #72869a; }
+.room-code-input {
+  text-transform: uppercase;
+  text-align: center;
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 21px;
+  letter-spacing: 5px;
+}
+.online-action {
+  width: 100%;
+  margin-top: 10px;
+  min-height: 44px;
+  font-size: 11px;
+}
+.online-action:disabled {
+  opacity: .52;
+  cursor: not-allowed;
+  transform: none;
+}
+.online-or {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  margin: 16px 0 5px;
+  color: #91a5b7;
+  font-size: 8px;
+  font-weight: 900;
+  letter-spacing: 1.4px;
+}
+.online-or span {
+  flex: 1;
+  height: 1px;
+  background: #ffffff20;
+}
+.online-error {
+  min-height: 16px;
+  margin-top: 8px;
+  color: #ff9a83;
+  font-size: 10px;
+  line-height: 1.45;
+}
+.online-footnote {
+  margin-top: 15px;
+  padding-top: 12px;
+  border-top: 1px solid #ffffff1b;
+  color: #758da2;
+  font-size: 8px;
+  font-weight: 800;
+  letter-spacing: 1.1px;
+  text-align: center;
+}
+.room-code-card {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 7px 10px;
+  margin: 13px 0 17px;
+  padding: 13px 15px;
+  border: 1px solid #ffc43a60;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #ffc43a18, #f18c2610);
+}
+.room-code-card > span {
+  color: #b9c6d0;
+  font-size: 8px;
+  font-weight: 900;
+  letter-spacing: 1.5px;
+}
+.room-code-card strong {
+  grid-column: 1;
+  color: #ffc43a;
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 36px;
+  line-height: 1;
+  letter-spacing: 6px;
+}
+.room-code-card button {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+  padding: 9px 11px;
+  font-size: 9px;
+}
+.room-code-card small {
+  grid-column: 1 / -1;
+  color: #72d89f;
+  font-size: 8px;
+  letter-spacing: 1px;
+}
+.room-player-heading {
+  display: flex;
+  justify-content: space-between;
+  margin: 0 0 8px;
+  color: #a9bbc9;
+  font-size: 9px;
+  font-weight: 900;
+  letter-spacing: 1.1px;
+}
+.room-player-heading b { color: #f7f8fa; }
+.room-player-list {
+  display: grid;
+  gap: 6px;
+}
+.room-player-row {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-height: 37px;
+  padding: 7px 10px;
+  border: 1px solid #ffffff18;
+  border-radius: 8px;
+  background: #ffffff08;
+  color: #ecf2f7;
+  font-size: 11px;
+}
+.room-player-color {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  box-shadow: 0 0 8px currentColor;
+}
+.room-player-row small {
+  margin-left: auto;
+  color: #ffc43a;
+  font-size: 8px;
+  font-weight: 900;
+  letter-spacing: 1px;
+}
+.room-player-row em {
+  color: #68d99a;
+  font-size: 8px;
+  font-style: normal;
+  font-weight: 900;
+  letter-spacing: 1px;
+}
+.room-player-row.waiting {
+  color: #6e8296;
+  border-style: dashed;
+  background: transparent;
+  font-size: 8px;
+  font-weight: 800;
+  letter-spacing: 1.1px;
+}
+.online-waiting {
+  margin: 14px 0 2px;
+  padding: 13px;
+  border: 1px solid #ffffff20;
+  border-radius: 9px;
+  color: #bfd0dc;
+  font-size: 11px;
+  text-align: center;
+}
+.leave-room { background: #2c3440; }
+.truck-nameplate {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: max-content;
+  max-width: 190px;
+  padding: 5px 9px;
+  border: 2px solid #ffc43a;
+  border-radius: 7px;
+  background: rgba(13, 24, 37, 0.94);
+  box-shadow: 0 4px 14px #0005;
+  color: #ffffff;
+  font: 900 10px Inter, sans-serif;
+  letter-spacing: .7px;
+  text-transform: uppercase;
+  white-space: nowrap;
+  text-shadow: 0 1px 2px #000;
+  pointer-events: none;
+}
+.truck-nameplate-dot {
+  flex: 0 0 7px;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+}
+.truck-nameplate small {
+  margin-left: 2px;
+  color: #ffc43a;
+  font-size: 7px;
+  letter-spacing: 1px;
+}
+.race-countdown {
+  position: absolute;
+  z-index: 7;
+  left: 50%;
+  top: 48%;
+  transform: translate(-50%, -50%);
+  display: grid;
+  place-items: center;
+  width: 150px;
+  height: 150px;
+  border: 3px solid #ffc43a;
+  border-radius: 50%;
+  background: rgba(14, 25, 39, .88);
+  box-shadow: 0 10px 55px #0007;
+  pointer-events: none;
+}
+.race-countdown span {
+  color: #ffc43a;
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 84px;
+  font-weight: 900;
+  line-height: .8;
+}
+.race-countdown small {
+  margin-top: -25px;
+  color: #e4edf4;
+  font-size: 8px;
+  font-weight: 900;
+  letter-spacing: 1.5px;
+}
+.race-result-overlay {
+  position: absolute;
+  z-index: 8;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: #07111bbd;
+}
+.race-result-card {
+  width: min(420px, calc(100% - 30px));
+  padding: 30px;
+  border: 1px solid #ffffff30;
+  border-radius: 18px;
+  background: #142437f2;
+  text-align: center;
+  box-shadow: 0 20px 70px #0008;
+}
+.race-result-card h2 { color: #ffc43a; font-size: 42px; }
+.race-result-card p { color: #b9c9d7; font-size: 11px; }
+
+@media(max-width: 650px) {
+  .online-lobby-panel {
+    margin-top: 1vh;
+    padding: 20px 18px 16px;
+    max-height: calc(100vh - 150px);
+  }
+  .online-lobby-panel h2 { font-size: 31px; }
+  .room-code-card strong { font-size: 30px; }
+  .truck-nameplate { font-size: 8px; padding: 4px 7px; }
+  .race-countdown { width: 112px; height: 112px; }
+  .race-countdown span { font-size: 64px; }
+}
