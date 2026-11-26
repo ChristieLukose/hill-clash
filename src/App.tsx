@@ -126,6 +126,7 @@ function WorldCanvas({
               active
               camera={camera}
               onHud={onHud}
+              onFinish={onFinish}
             />
           )}
 
@@ -179,6 +180,16 @@ function PlayerHud({ hud, name }: { hud: VehicleHud; name: string }) {
         <span>CLIMB</span><strong>{Math.floor(hud.progress)} m</strong>
         <span>PITCH</span><strong>{hud.pitch.toFixed(1)}°</strong>
         <span>ROLL</span><strong>{hud.roll.toFixed(1)}°</strong>
+      </div>
+      <div
+        className="race-progress-track"
+        role="progressbar"
+        aria-label="Race progress"
+        aria-valuemin={0}
+        aria-valuemax={72}
+        aria-valuenow={Math.min(72, Math.floor(hud.progress))}
+      >
+        <i style={{ width: `${Math.min(100, Math.max(0, (hud.progress / 72) * 100))}%` }} />
       </div>
       <div className="axle-loads">
         <span>FRONT LOAD <b>{hud.frontLoad.toFixed(1)} kN</b></span>
@@ -423,6 +434,7 @@ export default function App() {
   }, []);
 
   const [winnerName, setWinnerName] = useState('');
+  const [soloFinished, setSoloFinished] = useState(false);
 
   function setWinnerFromRoom(nextRoom: OnlineRoom) {
     setWinnerName(nextRoom.winner?.name ?? '');
@@ -507,7 +519,11 @@ export default function App() {
     socket.emit('player:state', state);
   };
   const handleFinish = () => {
-    socket.emit('race:finish', { progress: 72 });
+    if (mode === 'onlineRace') {
+      socket.emit('race:finish', { progress: 72 });
+    } else {
+      setSoloFinished(true);
+    }
   };
 
   const countdown = room?.startedAt
@@ -557,7 +573,7 @@ export default function App() {
           <h1>THE HILL<br /><span>IS YOURS.</span></h1>
           <p>Master the slope. Keep your wheels gripping.<br />Race drivers from anywhere.</p>
           <div className="menu-buttons">
-            <button className="primary" onClick={() => setMode('solo')}>▶ SOLO CLIMB</button>
+            <button className="primary" onClick={() => { setSoloFinished(false); setMode('solo'); }}>▶ SOLO CLIMB</button>
             <button className="secondary" onClick={() => { setError(''); setMode('onlineLobby'); }}>🌐 ONLINE MULTIPLAYER</button>
           </div>
           <div className="feature-row">
@@ -621,6 +637,19 @@ export default function App() {
             <h2>{winnerName || room.winner?.name || 'RACE COMPLETE'} WINS!</h2>
             <p>Room {room.code} · {room.players.length} drivers</p>
             <button className="primary online-action" onClick={leaveRoom}>BACK TO GARAGE</button>
+          </div>
+        </div>
+      )}
+
+      {mode === 'solo' && soloFinished && (
+        <div className="race-result-overlay">
+          <div className="race-result-card">
+            <div className="online-panel-eyebrow">SUMMIT REACHED</div>
+            <h2>CLIMB COMPLETE!</h2>
+            <p>You made it to the top of the hill.</p>
+            <button className="primary online-action" onClick={() => { setSoloFinished(false); setMode('menu'); }}>
+              BACK TO GARAGE
+            </button>
           </div>
         </div>
       )}
