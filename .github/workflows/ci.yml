@@ -18,5 +18,7 @@ jobs:
           node-version: 22
       - name: Install dependencies
         run: npm install
+      - name: Check multiplayer server syntax
+        run: npm run check:server
       - name: Build frontend
         run: npm run build
