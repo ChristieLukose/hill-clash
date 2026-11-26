@@ -9,17 +9,26 @@ import {
   useRapier,
 } from '@react-three/rapier';
 import * as THREE from 'three';
-import { mountainHeight, roadCenterX, roadHalfWidth, type TerrainType } from './HillTerrain';
+import { mountainHeight, roadCenterX, roadHalfWidth, TRACK_LENGTH, type TerrainType } from './HillTerrain';
 import type { VehicleNetworkState } from './network';
 
 const MASS = 1250;
 const WHEEL_RADIUS = 0.43;
 const WHEEL_REST_LENGTH = 0.55;
 const WHEEL_MOUNT_Y = -0.28;
-const MAX_ENGINE_FORCE = 8600;
+const MAX_ENGINE_FORCE = 9200;
 const MAX_BRAKE_FORCE = 5000;
 const MAX_STEER_ANGLE = 0.39;
 const MAX_SPEED = 22;
+
+const GEAR_RATIOS = [4.2, 3.1, 2.3, 1.7, 1.25] as const;
+const GEAR_TORQUE = [1.18, 1.03, 0.9, 0.79, 0.7] as const;
+const REVERSE_RATIO = 3.4;
+const FINAL_DRIVE_RATIO = 7.1;
+const IDLE_RPM = 900;
+const UPSHIFT_RPM = 5650;
+const DOWNSHIFT_RPM = 1850;
+const MAX_ENGINE_RPM = 6200;
 
 const WHEELS = [
   { x: 1.02, z: -0.78, front: true, driveShare: 0.21 },
@@ -29,7 +38,7 @@ const WHEELS = [
 ] as const;
 
 function spawnAtProgress(progress: number, laneStart: number, terrainType: TerrainType): [number, number, number] {
-  const safeProgress = THREE.MathUtils.clamp(progress, 2, 70);
+  const safeProgress = THREE.MathUtils.clamp(progress, 2, TRACK_LENGTH - 2);
   const centerX = roadCenterX(safeProgress, terrainType) + laneStart;
   const highestWheelGround = Math.max(
     ...WHEELS.map((wheel) => mountainHeight(centerX + wheel.z, -(safeProgress + wheel.x), terrainType)),
@@ -86,6 +95,7 @@ export type VehicleHud = {
   speed: number;
   progress: number;
   gear: string;
+  rpm: number;
   pitch: number;
   roll: number;
   frontLoad: number;
@@ -161,6 +171,8 @@ export default function Truck3D({
   const finishSent = useRef(false);
   const overturnedClock = useRef(0);
   const offTrackClock = useRef(0);
+  const gearbox = useRef(0);
+  const shiftCooldown = useRef(0);
   const safeProgress = useRef(startProgress);
   const motionWarning = useRef('');
   const warningHold = useRef(0);
@@ -228,6 +240,8 @@ export default function Truck3D({
       overturnedClock.current = 0;
       offTrackClock.current = 0;
       safeProgress.current = startProgress;
+      gearbox.current = 0;
+      shiftCooldown.current = 0;
       motionWarning.current = '';
       warningHold.current = 0;
       steeringValue.current = 0;
@@ -252,7 +266,7 @@ export default function Truck3D({
       overturnedClock.current = 0;
     }
 
-    const progressAlongTrack = THREE.MathUtils.clamp(-translation.z, 2, 70);
+    const progressAlongTrack = THREE.MathUtils.clamp(-translation.z, 2, TRACK_LENGTH - 2);
     const trackCenter = roadCenterX(progressAlongTrack, terrainType);
     const lateralOffset = translation.x - trackCenter;
     const trackHalfWidth = roadHalfWidth(progressAlongTrack, terrainType);
@@ -278,7 +292,7 @@ export default function Truck3D({
     const offTrackRecovery = offTrackClock.current >= 3.6;
     if (overturnedClock.current >= 2.2 || belowTerrain || offTrackRecovery) {
       const recoveryProgress = offTrackRecovery
-        ? THREE.MathUtils.clamp(safeProgress.current, 2, 70)
+        ? THREE.MathUtils.clamp(safeProgress.current, 2, TRACK_LENGTH - 2)
         : progressAlongTrack;
       const recoverySpawn = spawnAtProgress(recoveryProgress, laneStart, terrainType);
       chassis.setTranslation(
@@ -300,12 +314,50 @@ export default function Truck3D({
       translation = chassis.translation();
     }
 
-    // Engine output falls away as forward speed approaches the top gear limit.
+    // Automatic 5-speed transmission: wheel speed and selected ratio determine engine RPM.
+    shiftCooldown.current = Math.max(0, shiftCooldown.current - dt);
+    if (input.throttle < -0.05) {
+      gearbox.current = -1;
+    } else if (input.throttle > 0.05) {
+      if (gearbox.current < 1) gearbox.current = 1;
+      const currentRatio = GEAR_RATIOS[gearbox.current - 1] ?? GEAR_RATIOS[0];
+      const wheelRpm = Math.abs(currentSpeed) / (2 * Math.PI * WHEEL_RADIUS) * 60;
+      const estimatedRpm = IDLE_RPM + wheelRpm * currentRatio * FINAL_DRIVE_RATIO;
+      if (shiftCooldown.current <= 0 && estimatedRpm > UPSHIFT_RPM && gearbox.current < GEAR_RATIOS.length) {
+        gearbox.current += 1;
+        shiftCooldown.current = 0.32;
+      } else if (shiftCooldown.current <= 0 && estimatedRpm < DOWNSHIFT_RPM && gearbox.current > 1) {
+        gearbox.current -= 1;
+        shiftCooldown.current = 0.28;
+      }
+    }
+
+    const selectedRatio = gearbox.current < 0
+      ? REVERSE_RATIO
+      : gearbox.current > 0
+        ? GEAR_RATIOS[gearbox.current - 1]
+        : GEAR_RATIOS[0];
+    const wheelRpm = Math.abs(currentSpeed) / (2 * Math.PI * WHEEL_RADIUS) * 60;
+    const engineRpm = THREE.MathUtils.clamp(
+      IDLE_RPM + wheelRpm * selectedRatio * FINAL_DRIVE_RATIO,
+      IDLE_RPM,
+      MAX_ENGINE_RPM,
+    );
+    const torqueCurve = THREE.MathUtils.clamp(
+      1.1 - Math.max(0, engineRpm - 3900) / 7200 - Math.max(0, 1800 - engineRpm) / 5600,
+      0.58,
+      1.1,
+    );
+    const gearTorque = gearbox.current < 0
+      ? 0.58
+      : gearbox.current > 0
+        ? GEAR_TORQUE[gearbox.current - 1]
+        : 0;
     const speedFade = THREE.MathUtils.clamp(1 - Math.abs(currentSpeed) / MAX_SPEED, 0.18, 1);
-    const engineForce = MAX_ENGINE_FORCE * speedFade * input.throttle;
+    const engineForce = MAX_ENGINE_FORCE * torqueCurve * gearTorque * speedFade * input.throttle;
     if (input.throttle !== 0 || input.steering !== 0 || input.brake) chassis.wakeUp();
     const progress = Math.max(0, -translation.z);
-    const terrainGrip = progress > 38 ? 5.1 : progress > 20 ? 6.2 : 7.6;
+    const terrainGrip = progress > 110 ? 5.1 : progress > 55 ? 6.2 : 7.6;
     steeringValue.current = THREE.MathUtils.damp(
       steeringValue.current,
       input.steering,
@@ -419,7 +471,7 @@ export default function Truck3D({
         });
       }
     }
-    if (activeRef.current && progressNow >= 72 && !finishSent.current) {
+    if (activeRef.current && progressNow >= TRACK_LENGTH && !finishSent.current) {
       finishSent.current = true;
       finishRef.current?.();
     }
@@ -453,7 +505,15 @@ export default function Truck3D({
       onHudRef.current({
         speed: Math.abs(speed) * 3.6,
         progress: Math.max(0, -p.z),
-        gear: speed < -0.35 ? 'R' : speed > 14 ? '3' : speed > 6 ? '2' : speed > 0.35 ? '1' : 'N',
+        gear: gearbox.current < 0 ? 'R' : gearbox.current > 0 ? String(gearbox.current) : 'N',
+        rpm: THREE.MathUtils.clamp(
+          IDLE_RPM +
+            (Math.abs(speed) / (2 * Math.PI * WHEEL_RADIUS) * 60) *
+              (gearbox.current < 0 ? REVERSE_RATIO : GEAR_RATIOS[Math.max(0, gearbox.current - 1)]) *
+              FINAL_DRIVE_RATIO,
+          IDLE_RPM,
+          MAX_ENGINE_RPM,
+        ),
         pitch: THREE.MathUtils.radToDeg(rotationEuler.z),
         roll: THREE.MathUtils.radToDeg(rotationEuler.x),
         frontLoad: frontLoad / 1000,
