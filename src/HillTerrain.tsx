@@ -19,19 +19,45 @@ const TERRAIN_STYLES: Record<TerrainType, { ground: string; trail: string; rock:
   jungle: { ground: '#315f3e', trail: '#70533b', rock: '#626b58', foliage: '#1d5738', trunk: '#493c2d' },
 };
 
-/** Centreline of each route, expressed in world X for a progress value. */
+/** Centreline of each route, expressed in world X for a progress value.
+ * Multiple frequencies create long S-bends with tighter chicanes between them. */
 export function roadCenterX(progress: number, terrainType: TerrainType = 'mountain') {
   const distance = Math.max(0, progress);
   if (terrainType === 'desert') {
-    return Math.sin(distance * 0.052) * 5.4 + Math.sin(distance * 0.021) * 1.35;
+    return Math.sin(distance * 0.055) * 6.2
+      + Math.sin(distance * 0.13) * 1.4
+      + Math.sin(distance * 0.024) * 2.0;
   }
   if (terrainType === 'snow') {
-    return Math.sin(distance * 0.086) * 3.5 + Math.sin(distance * 0.031) * 1.45;
+    return Math.sin(distance * 0.09) * 4.6
+      + Math.sin(distance * 0.16) * 0.9
+      + Math.sin(distance * 0.03) * 1.8;
   }
   if (terrainType === 'jungle') {
-    return Math.sin(distance * 0.064) * 4.8 + Math.sin(distance * 0.019) * 1.55;
+    return Math.sin(distance * 0.07) * 5.4
+      + Math.sin(distance * 0.15) * 1.0
+      + Math.sin(distance * 0.021) * 2.2;
   }
-  return Math.sin(distance * 0.075) * 4.2 + Math.sin(distance * 0.025) * 1.1;
+  return Math.sin(distance * 0.08) * 5.6
+    + Math.sin(distance * 0.16) * 1.2
+    + Math.sin(distance * 0.026) * 2.0;
+}
+
+/** Track width changes make narrow ridge sections and wider passing zones. */
+export function roadHalfWidth(progress: number, terrainType: TerrainType = 'mountain') {
+  const distance = Math.max(0, progress);
+  const base = terrainType === 'snow' ? 3.95 : terrainType === 'desert' ? 4.45 : 4.2;
+  const narrowOne = Math.exp(-((distance - 20) / 4.2) ** 2) * 0.62;
+  const narrowTwo = Math.exp(-((distance - 49) / 3.8) ** 2) * 0.48;
+  const widePass = Math.exp(-((distance - 34) / 6.5) ** 2) * 0.42;
+  return THREE.MathUtils.clamp(base - narrowOne - narrowTwo + widePass, 3.35, 4.75);
+}
+
+/** Heading change per unit of progress, used to align roadside structures. */
+function roadHeading(progress: number, terrainType: TerrainType) {
+  const sample = 0.35;
+  const derivative = (roadCenterX(progress + sample, terrainType) - roadCenterX(progress - sample, terrainType)) / (sample * 2);
+  return Math.atan2(derivative, -1);
 }
 
 /** Height of the centre of the playable road. Progress increases uphill toward -Z. */
@@ -82,14 +108,36 @@ export function mountainHeight(x: number, z: number, terrainType: TerrainType = 
 
   const roughness = surfaceDetail * (0.35 + trailRoughness * 0.34);
   const trailSmoothing = terrainType === 'mountain' ? 0.38 : terrainType === 'snow' ? 0.32 : 0.44;
-  return baseClimb + shoulder + roughness - trailRoughness * trailSmoothing;
+
+  // Large ridgelines and isolated peaks make the surrounding world feel mountainous
+  // while the trail corridor remains smoother and predictable for vehicle physics.
+  const peakOne = Math.exp(
+    -(((x + 18) / 7.2) ** 2) - (((z + 25) / 12) ** 2),
+  ) * 10.5;
+  const peakTwo = Math.exp(
+    -(((x - 19) / 8.5) ** 2) - (((z + 48) / 14) ** 2),
+  ) * 13;
+  const ridgeSpine = Math.exp(-(((x - trailCenter(z, terrainType) - 13) / 5.5) ** 2))
+    * (0.5 + 0.5 * Math.sin(z * 0.11)) * 5.4;
+  const offTrackBlend = THREE.MathUtils.smoothstep(trailDistance, 4.2, 10.5);
+  const alpineRelief = (peakOne + peakTwo + ridgeSpine) * offTrackBlend;
+
+  const terrainRelief = terrainType === 'mountain'
+    ? alpineRelief
+    : terrainType === 'snow'
+      ? alpineRelief * 0.72 + Math.max(0, Math.sin(x * 0.18 + z * 0.09)) * offTrackBlend * 1.4
+      : terrainType === 'desert'
+        ? Math.abs(Math.sin(x * 0.12 + z * 0.08)) * offTrackBlend * 2.2
+        : Math.sin(x * 0.2 - z * 0.13) * offTrackBlend * 1.8;
+
+  return baseClimb + shoulder + roughness - trailRoughness * trailSmoothing + terrainRelief;
 }
 
 function createMountainGeometry(terrainType: TerrainType) {
   const width = 90;
   const depth = 150;
-  const xSegments = 110;
-  const zSegments = 180;
+  const xSegments = 140;
+  const zSegments = 220;
   const positions: number[] = [];
   const indices: number[] = [];
 
@@ -125,14 +173,15 @@ function createTrailGeometry(terrainType: TerrainType) {
   const segments = 180;
   const startZ = 14;
   const endZ = -72;
-  const halfWidth = 4.25;
   const positions: number[] = [];
   const indices: number[] = [];
 
   for (let i = 0; i <= segments; i += 1) {
     const t = i / segments;
     const z = startZ + (endZ - startZ) * t;
+    const progress = Math.max(0, -z);
     const center = trailCenter(z, terrainType);
+    const halfWidth = roadHalfWidth(progress, terrainType);
     positions.push(center - halfWidth, mountainHeight(center - halfWidth, z, terrainType) + 0.075, z);
     positions.push(center + halfWidth, mountainHeight(center + halfWidth, z, terrainType) + 0.075, z);
 
