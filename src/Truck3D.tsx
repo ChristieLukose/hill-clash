@@ -9,7 +9,7 @@ import {
   useRapier,
 } from '@react-three/rapier';
 import * as THREE from 'three';
-import { mountainHeight, roadCenterX, roadHeight } from './HillTerrain';
+import { mountainHeight, roadCenterX, roadHeight, type TerrainType } from './HillTerrain';
 import type { VehicleNetworkState } from './network';
 
 const MASS = 1250;
@@ -28,11 +28,11 @@ const WHEELS = [
   { x: -1.02, z: 0.78, front: false, driveShare: 0.29 },
 ] as const;
 
-function spawnAtProgress(progress: number, laneStart: number): [number, number, number] {
+function spawnAtProgress(progress: number, laneStart: number, terrainType: TerrainType): [number, number, number] {
   const safeProgress = THREE.MathUtils.clamp(progress, 2, 70);
-  const centerX = roadCenterX(safeProgress) + laneStart;
+  const centerX = roadCenterX(safeProgress, terrainType) + laneStart;
   const highestWheelGround = Math.max(
-    ...WHEELS.map((wheel) => mountainHeight(centerX + wheel.z, -(safeProgress + wheel.x))),
+    ...WHEELS.map((wheel) => mountainHeight(centerX + wheel.z, -(safeProgress + wheel.x), terrainType)),
   );
   const hubToGroundReach = WHEEL_REST_LENGTH + WHEEL_RADIUS;
   const bodyHeight = highestWheelGround + hubToGroundReach - WHEEL_MOUNT_Y - 0.02;
@@ -94,6 +94,8 @@ export type VehicleHud = {
   rearSlip: number;
   wheelContacts: number;
   input: string;
+  lateral: number;
+  warning: string;
 };
 
 type Truck3DProps = {
@@ -104,6 +106,7 @@ type Truck3DProps = {
   camera: RefObject<THREE.PerspectiveCamera | null>;
   onHud?: (hud: VehicleHud) => void;
   playerName: string;
+  terrainType: TerrainType;
   startProgress?: number;
   onNetworkState?: (state: VehicleNetworkState) => void;
   onFinish?: () => void;
@@ -138,6 +141,7 @@ export default function Truck3D({
   camera,
   onHud,
   playerName,
+  terrainType,
   startProgress = 2,
   onNetworkState,
   onFinish,
@@ -156,12 +160,16 @@ export default function Truck3D({
   const networkClock = useRef(0);
   const finishSent = useRef(false);
   const overturnedClock = useRef(0);
+  const offTrackClock = useRef(0);
+  const wrongWayClock = useRef(0);
+  const safeProgress = useRef(startProgress);
+  const motionWarning = useRef('');
   const steeringValue = useRef(0);
   const cameraLookTarget = useRef(new THREE.Vector3());
   const cameraTargetInitialized = useRef(false);
   const spawn = useMemo<[number, number, number]>(
-    () => spawnAtProgress(startProgress, laneStart),
-    [laneStart, startProgress],
+    () => spawnAtProgress(startProgress, laneStart, terrainType),
+    [laneStart, startProgress, terrainType],
   );
 
   activeRef.current = active;
@@ -218,6 +226,10 @@ export default function Truck3D({
       wheelSlip.current = [0, 0, 0, 0];
       finishSent.current = false;
       overturnedClock.current = 0;
+      offTrackClock.current = 0;
+      wrongWayClock.current = 0;
+      safeProgress.current = startProgress;
+      motionWarning.current = '';
       steeringValue.current = 0;
       translation = chassis.translation();
       pressedKeys.delete(player === 1 ? 'r' : 'enter');
@@ -233,15 +245,50 @@ export default function Truck3D({
         chassis.rotation().w,
       ),
     );
-    const belowTerrain = translation.y < mountainHeight(translation.x, translation.z) - 1.8;
+    const belowTerrain = translation.y < mountainHeight(translation.x, translation.z, terrainType) - 1.8;
     if (chassisUp.y < 0.18 && Math.abs(currentSpeed) < 3.2) {
       overturnedClock.current += dt;
     } else {
       overturnedClock.current = 0;
     }
-    if (overturnedClock.current >= 2.2 || belowTerrain) {
-      const recoveryProgress = THREE.MathUtils.clamp(-translation.z, 2, 70);
-      const recoverySpawn = spawnAtProgress(recoveryProgress, laneStart);
+
+    const progressAlongTrack = THREE.MathUtils.clamp(-translation.z, 2, 70);
+    const trackCenter = roadCenterX(progressAlongTrack, terrainType);
+    const lateralOffset = translation.x - trackCenter;
+    const velocity = chassis.linvel();
+    const progressAhead = Math.min(71, progressAlongTrack + 0.8);
+    const progressBehind = Math.max(1, progressAlongTrack - 0.8);
+    const tangent = new THREE.Vector3(
+      (roadCenterX(progressAhead, terrainType) - roadCenterX(progressBehind, terrainType)) /
+        Math.max(0.1, progressAhead - progressBehind),
+      (roadHeight(progressAhead, terrainType) - roadHeight(progressBehind, terrainType)) /
+        Math.max(0.1, progressAhead - progressBehind),
+      -1,
+    ).normalize();
+    const alongTrackSpeed = new THREE.Vector3(velocity.x, velocity.y, velocity.z).dot(tangent);
+    const isOffTrack = Math.abs(lateralOffset) > 6.1;
+    const isGoingWrongWay = alongTrackSpeed < -1.4 && Math.hypot(velocity.x, velocity.z) > 2;
+
+    offTrackClock.current = isOffTrack ? offTrackClock.current + dt : Math.max(0, offTrackClock.current - dt * 2);
+    wrongWayClock.current = isGoingWrongWay ? wrongWayClock.current + dt : Math.max(0, wrongWayClock.current - dt * 2);
+
+    if (Math.abs(lateralOffset) < 4.5 && chassisUp.y > 0.45 && !isGoingWrongWay) {
+      safeProgress.current = Math.max(safeProgress.current, progressAlongTrack);
+    }
+
+    motionWarning.current = isOffTrack && offTrackClock.current > 0.7
+      ? 'OFF TRACK'
+      : isGoingWrongWay && wrongWayClock.current > 0.7
+        ? 'WRONG WAY'
+        : '';
+
+    const offTrackRecovery = offTrackClock.current >= 3.6;
+    const wrongWayRecovery = wrongWayClock.current >= 4.2;
+    if (overturnedClock.current >= 2.2 || belowTerrain || offTrackRecovery || wrongWayRecovery) {
+      const recoveryProgress = wrongWayRecovery
+        ? THREE.MathUtils.clamp(safeProgress.current, 2, 70)
+        : progressAlongTrack;
+      const recoverySpawn = spawnAtProgress(recoveryProgress, laneStart, terrainType);
       chassis.setTranslation(
         { x: recoverySpawn[0], y: recoverySpawn[1], z: recoverySpawn[2] },
         true,
@@ -253,6 +300,13 @@ export default function Truck3D({
       wheelSlip.current = [0, 0, 0, 0];
       steeringValue.current = 0;
       overturnedClock.current = 0;
+      offTrackClock.current = 0;
+      wrongWayClock.current = 0;
+      motionWarning.current = wrongWayRecovery
+        ? 'WRONG WAY · RETURNED TO CHECKPOINT'
+        : offTrackRecovery
+          ? 'OFF TRACK · RETURNED TO TRACK'
+          : 'TRUCK RECOVERED';
       translation = chassis.translation();
     }
 
@@ -420,6 +474,8 @@ export default function Truck3D({
           ? WHEELS.filter((_, index) => controller.wheelIsInContact(index)).length
           : -1,
         input: keyLabel,
+        lateral: p.x - roadCenterX(progressNow, terrainType),
+        warning: motionWarning.current,
       });
     }
   });
