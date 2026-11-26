@@ -208,12 +208,12 @@ export default function TruckVisual({ color, wheelRefs }: TruckVisualProps) {
                   <torusGeometry args={[0.305, 0.025, 8, 32]} />
                   <meshStandardMaterial color="#343a3d" roughness={0.84} metalness={0.08} />
                 </mesh>
-                <mesh>
-                  <cylinderGeometry args={[0.245, 0.245, 0.025, 28]} rotation={[Math.PI / 2, 0, 0]} />
+                <mesh rotation={[Math.PI / 2, 0, 0]}>
+                  <cylinderGeometry args={[0.245, 0.245, 0.025, 28]} />
                   <meshStandardMaterial color="#69747b" metalness={0.78} roughness={0.3} />
                 </mesh>
-                <mesh position={[0, 0, side * 0.018]}>
-                  <cylinderGeometry args={[0.205, 0.205, 0.018, 28]} rotation={[Math.PI / 2, 0, 0]} />
+                <mesh position={[0, 0, side * 0.018]} rotation={[Math.PI / 2, 0, 0]}>
+                  <cylinderGeometry args={[0.205, 0.205, 0.018, 28]} />
                   <meshStandardMaterial color="#222a30" metalness={0.72} roughness={0.32} />
                 </mesh>
                 {spokes.map((spoke) => (
@@ -226,8 +226,8 @@ export default function TruckVisual({ color, wheelRefs }: TruckVisualProps) {
                     <meshStandardMaterial color="#b2bbc0" metalness={0.86} roughness={0.24} />
                   </mesh>
                 ))}
-                <mesh position={[0, 0, side * 0.052]}>
-                  <cylinderGeometry args={[0.085, 0.085, 0.025, 20]} rotation={[Math.PI / 2, 0, 0]} />
+                <mesh position={[0, 0, side * 0.052]} rotation={[Math.PI / 2, 0, 0]}>
+                  <cylinderGeometry args={[0.085, 0.085, 0.025, 20]} />
                   <meshStandardMaterial color="#aeb7bc" metalness={0.9} roughness={0.22} />
                 </mesh>
                 {lugs.map((lug) => {
@@ -236,8 +236,9 @@ export default function TruckVisual({ color, wheelRefs }: TruckVisualProps) {
                     <mesh
                       key={lug}
                       position={[Math.sin(angle) * 0.135, Math.cos(angle) * 0.135, side * 0.052]}
+                      rotation={[Math.PI / 2, 0, 0]}
                     >
-                      <cylinderGeometry args={[0.018, 0.018, 0.025, 8]} rotation={[Math.PI / 2, 0, 0]} />
+                      <cylinderGeometry args={[0.018, 0.018, 0.025, 8]} />
                       <meshStandardMaterial color="#d1d6d8" metalness={0.92} roughness={0.2} />
                     </mesh>
                   );
