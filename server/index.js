@@ -139,7 +139,7 @@ function safeVector3(value) {
   return {
     x: Math.max(-120, Math.min(120, value.x)),
     y: Math.max(-40, Math.min(100, value.y)),
-    z: Math.max(-180, Math.min(30, value.z)),
+    z: Math.max(-280, Math.min(30, value.z)),
   };
 }
 
@@ -247,20 +247,20 @@ io.on('connection', (socket) => {
       position,
       rotation,
       speed: Number.isFinite(payload.speed) ? Math.max(-80, Math.min(80, payload.speed)) : 0,
-      progress: Number.isFinite(payload.progress) ? Math.max(0, Math.min(100, payload.progress)) : Math.max(0, -position.z),
+      progress: Number.isFinite(payload.progress) ? Math.max(0, Math.min(260, payload.progress)) : Math.max(0, -position.z),
       sentAt: now,
     };
     player.state = snapshot;
     socket.to(room.code).emit('player:state', snapshot);
 
-    if (snapshot.progress >= 72) finishRace(room, player);
+    if (snapshot.progress >= 240) finishRace(room, player);
   });
 
   socket.on('race:finish', (payload = {}) => {
     const membership = playerForSocket(socket);
     if (!membership) return;
     const progress = Number(payload.progress);
-    if (!Number.isFinite(progress) || progress < 72) return;
+    if (!Number.isFinite(progress) || progress < 240) return;
     finishRace(membership.room, membership.player);
   });
 
