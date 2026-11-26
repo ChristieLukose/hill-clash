@@ -343,9 +343,20 @@ function TouchControls() {
         <TouchButton control="reset" className="touch-reset" label="Reset truck">↻</TouchButton>
       </div>
       <div className="touch-driving">
-        <TouchButton control="reverse" className="touch-reverse" label="Reverse">REV</TouchButton>
-        <TouchButton control="brake" className="touch-brake" label="Brake">BRAKE</TouchButton>
-        <TouchButton control="throttle" className="touch-throttle" label="Accelerate">▲<small>GAS</small></TouchButton>
+        <TouchButton control="reverse" className="touch-reverse" label="Reverse">
+          <svg className="touch-icon" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M9 14 4 9l5-5" />
+            <path d="M4 9h10a6 6 0 0 1 0 12h-2" />
+          </svg>
+        </TouchButton>
+        <TouchButton control="brake" className="touch-brake" label="Brake">
+          <svg className="touch-icon" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M12 3v4" />
+            <rect x="7" y="7" width="10" height="13" rx="2" />
+            <path d="M10 11v5M14 11v5" />
+          </svg>
+        </TouchButton>
+        <TouchButton control="throttle" className="touch-throttle" label="Accelerate">▲</TouchButton>
       </div>
     </div>
   );
