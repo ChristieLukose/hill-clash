@@ -26,6 +26,7 @@ export type RoomPlayer = {
 export type OnlineRoom = {
   code: string;
   hostId: string;
+  terrainType: 'mountain' | 'desert' | 'snow' | 'jungle';
   status: 'lobby' | 'countdown' | 'racing' | 'finished';
   startedAt: number | null;
   winner: { id: string; name: string; color: string } | null;
