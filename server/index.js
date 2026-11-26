@@ -21,6 +21,7 @@ const io = new Server(httpServer, {
 
 const PORT = Number(process.env.PORT || 3001);
 const MAX_PLAYERS = 8;
+const TERRAIN_TYPES = new Set(['mountain', 'desert', 'snow', 'jungle']);
 const ROOM_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 const PLAYER_COLORS = [
   '#ffb52e',
@@ -53,6 +54,10 @@ function cleanName(value) {
   return name || 'CLIMBER';
 }
 
+function cleanTerrainType(value) {
+  return TERRAIN_TYPES.has(value) ? value : 'mountain';
+}
+
 function makeRoomCode() {
   let code = '';
   do {
@@ -65,6 +70,7 @@ function roomSnapshot(room) {
   return {
     code: room.code,
     hostId: room.hostId,
+    terrainType: room.terrainType,
     status: room.status,
     startedAt: room.startedAt,
     winner: room.winner,
@@ -159,6 +165,7 @@ io.on('connection', (socket) => {
     const room = {
       code,
       hostId: socket.id,
+      terrainType: cleanTerrainType(payload.terrainType),
       status: 'lobby',
       startedAt: null,
       winner: null,
