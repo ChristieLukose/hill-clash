@@ -130,14 +130,14 @@ function readControls(player: 1 | 2) {
   if (player === 1) {
     return {
       throttle: (isPressed('w', 'keyw') ? 1 : 0) - (isPressed('s', 'keys') ? 0.62 : 0),
-      steering: (isPressed('d', 'keyd') ? 1 : 0) - (isPressed('a', 'keya') ? 1 : 0),
+      steering: (isPressed('a', 'keya') ? 1 : 0) - (isPressed('d', 'keyd') ? 1 : 0),
       brake: isPressed(' ', 'space'),
       reset: isPressed('r', 'keyr'),
     };
   }
   return {
     throttle: (isPressed('arrowup') ? 1 : 0) - (isPressed('arrowdown') ? 0.62 : 0),
-    steering: (isPressed('arrowright') ? 1 : 0) - (isPressed('arrowleft') ? 1 : 0),
+    steering: (isPressed('arrowleft') ? 1 : 0) - (isPressed('arrowright') ? 1 : 0),
     brake: isPressed('shift', 'shiftleft') || isPressed('shift', 'shiftright'),
     reset: isPressed('enter', 'enter'),
   };
