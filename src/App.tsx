@@ -462,6 +462,7 @@ export default function App() {
     const onConnectError = () => setConnectionStatus('OFFLINE');
     const onRoomUpdate = (nextRoom: OnlineRoom) => {
       setRoom(nextRoom);
+      setTerrainType(nextRoom.terrainType);
       setWinnerFromRoom(nextRoom);
       setRemoteStates((current) => {
         const next = { ...current };
@@ -528,6 +529,7 @@ export default function App() {
         }
         setMyPlayerId(reply.playerId);
         setRoom(reply.room);
+        setTerrainType(reply.room.terrainType);
         setWinnerName('');
         setRemoteStates({});
         setMode('onlineLobby');
@@ -540,7 +542,7 @@ export default function App() {
   }
 
   function createRoom() {
-    void enterRoom('room:create', { name: playerName });
+    void enterRoom('room:create', { name: playerName, terrainType });
   }
 
   function joinRoom() {
