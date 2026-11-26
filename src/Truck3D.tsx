@@ -9,7 +9,7 @@ import {
   useRapier,
 } from '@react-three/rapier';
 import * as THREE from 'three';
-import { mountainHeight, roadCenterX, type TerrainType } from './HillTerrain';
+import { mountainHeight, roadCenterX, roadHalfWidth, type TerrainType } from './HillTerrain';
 import type { VehicleNetworkState } from './network';
 
 const MASS = 1250;
@@ -255,7 +255,8 @@ export default function Truck3D({
     const progressAlongTrack = THREE.MathUtils.clamp(-translation.z, 2, 70);
     const trackCenter = roadCenterX(progressAlongTrack, terrainType);
     const lateralOffset = translation.x - trackCenter;
-    const isOffTrack = Math.abs(lateralOffset) > 6.1;
+    const trackHalfWidth = roadHalfWidth(progressAlongTrack, terrainType);
+    const isOffTrack = Math.abs(lateralOffset) > trackHalfWidth + 1.45;
 
     offTrackClock.current = isOffTrack
       ? offTrackClock.current + dt
@@ -264,7 +265,7 @@ export default function Truck3D({
 
     // Reversing on the road is allowed. Only lateral departure from the track
     // can trigger an off-track warning or automatic return.
-    if (Math.abs(lateralOffset) < 4.5 && chassisUp.y > 0.45) {
+    if (Math.abs(lateralOffset) < trackHalfWidth - 0.55 && chassisUp.y > 0.45) {
       safeProgress.current = Math.max(safeProgress.current, progressAlongTrack);
     }
 
