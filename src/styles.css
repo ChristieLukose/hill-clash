@@ -109,6 +109,23 @@
   backdrop-filter: blur(9px);
   pointer-events: none;
 }
+.trial-clock {
+  position: absolute;
+  z-index: 4;
+  top: 104px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 8px 18px;
+  border: 1px solid #ffffff38;
+  border-radius: 12px;
+  background: rgba(17, 29, 43, 0.9);
+  font-variant-numeric: tabular-nums;
+}
+.trial-clock small { color: #ffca3a; font-size: 9px; font-weight: 900; letter-spacing: 1.5px; }
+.trial-clock strong { color: #fff; font-family: 'Barlow Condensed', sans-serif; font-size: 28px; line-height: 1.05; }
 .player-label {
   display: flex;
   align-items: center;
@@ -224,6 +241,8 @@
   pointer-events: none;
 }
 @media(max-width: 760px) {
+  .trial-clock { top: 89px; padding: 6px 12px; }
+  .trial-clock strong { font-size: 22px; }
   .race-stage.split { flex-direction: column; }
   .race-stage.split .player-view { height: 50%; flex: 0 0 50%; }
   .player-view + .player-view { border-left: 0; border-top: 3px solid #172535; }

@@ -15,7 +15,7 @@ import {
   type VehicleNetworkState,
 } from './network';
 
-type Mode = 'menu' | 'solo' | 'onlineLobby' | 'onlineRace';
+type Mode = 'menu' | 'solo' | 'timeTrial' | 'onlineLobby' | 'onlineRace';
 
 const EMPTY_HUD: VehicleHud = {
   speed: 0, progress: 0, gear: 'N', pitch: 0, roll: 0,
@@ -69,6 +69,7 @@ function WorldCanvas({
   room,
   myPlayerId,
   terrainType,
+  trialRun,
   playerName,
   remoteStates,
   onHud,
@@ -79,6 +80,7 @@ function WorldCanvas({
   room: OnlineRoom | null;
   myPlayerId: string | null;
   terrainType: TerrainType;
+  trialRun: number;
   playerName: string;
   remoteStates: Record<string, NetworkSnapshot>;
   onHud: (hud: VehicleHud) => void;
@@ -86,7 +88,7 @@ function WorldCanvas({
   onFinish: () => void;
 }) {
   const camera = useRef<THREE.PerspectiveCamera>(null);
-  const active = mode === 'solo' || (mode === 'onlineRace' && room?.status === 'racing');
+  const active = mode === 'solo' || mode === 'timeTrial' || (mode === 'onlineRace' && room?.status === 'racing');
   const localPlayer = room?.players.find((player) => player.id === myPlayerId);
   const localSlot = localPlayer?.slot ?? 0;
   const localColor = localPlayer?.color ?? '#f5a623';
@@ -118,8 +120,9 @@ function WorldCanvas({
         <Physics gravity={[0, -9.81, 0]} timeStep={1 / 60}>
           <HillTerrain terrainType={terrainType} />
 
-          {mode === 'solo' && (
+          {(mode === 'solo' || mode === 'timeTrial') && (
             <Truck3D
+              key={mode === 'timeTrial' ? `trial-${trialRun}` : 'solo'}
               player={1}
               color="#f5a623"
               laneStart={0}
@@ -511,6 +514,14 @@ export default function App() {
 
   const [winnerName, setWinnerName] = useState('');
   const [soloFinished, setSoloFinished] = useState(false);
+  const [trialStartedAt, setTrialStartedAt] = useState<number | null>(null);
+  const [trialRun, setTrialRun] = useState(0);
+  const [trialElapsedMs, setTrialElapsedMs] = useState(0);
+  const [trialResultMs, setTrialResultMs] = useState<number | null>(null);
+  const [trialBestMs, setTrialBestMs] = useState<number | null>(() => {
+    const saved = Number(window.localStorage.getItem('hill-clash-best-time-trial'));
+    return Number.isFinite(saved) && saved > 0 ? saved : null;
+  });
 
   function setWinnerFromRoom(nextRoom: OnlineRoom) {
     setWinnerName(nextRoom.winner?.name ?? '');
@@ -521,6 +532,28 @@ export default function App() {
     const timer = window.setInterval(() => setNow(Date.now()), 100);
     return () => window.clearInterval(timer);
   }, [room?.status]);
+
+  useEffect(() => {
+    if (mode !== 'timeTrial' || trialStartedAt === null || trialResultMs !== null) return;
+    const timer = window.setInterval(() => setTrialElapsedMs(Date.now() - trialStartedAt), 40);
+    return () => window.clearInterval(timer);
+  }, [mode, trialStartedAt, trialResultMs]);
+
+  function formatTrialTime(milliseconds: number) {
+    const centiseconds = Math.floor(milliseconds / 10);
+    const minutes = Math.floor(centiseconds / 6000);
+    const seconds = Math.floor((centiseconds % 6000) / 100);
+    return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}.${String(centiseconds % 100).padStart(2, '0')}`;
+  }
+
+  function startTimeTrial() {
+    setTrialRun((run) => run + 1);
+    setSoloFinished(false);
+    setTrialElapsedMs(0);
+    setTrialResultMs(null);
+    setTrialStartedAt(Date.now());
+    setMode('timeTrial');
+  }
 
   async function enterRoom(eventName: 'room:create' | 'room:join', payload: Record<string, string>) {
     setBusy(true);
@@ -598,6 +631,14 @@ export default function App() {
   const handleFinish = () => {
     if (mode === 'onlineRace') {
       socket.emit('race:finish', { progress: TRACK_LENGTH });
+    } else if (mode === 'timeTrial') {
+      const result = trialStartedAt === null ? trialElapsedMs : Date.now() - trialStartedAt;
+      setTrialElapsedMs(result);
+      setTrialResultMs(result);
+      if (trialBestMs === null || result < trialBestMs) {
+        setTrialBestMs(result);
+        window.localStorage.setItem('hill-clash-best-time-trial', String(result));
+      }
     } else {
       setSoloFinished(true);
     }
@@ -630,6 +671,7 @@ export default function App() {
             room={room}
             myPlayerId={myPlayerId}
             terrainType={terrainType}
+            trialRun={trialRun}
             playerName={localPlayerName}
             remoteStates={remoteStates}
             onHud={setHud}
@@ -644,6 +686,7 @@ export default function App() {
             room={room}
             myPlayerId={myPlayerId}
             terrainType={terrainType}
+            trialRun={trialRun}
             playerName={localPlayerName}
             remoteStates={remoteStates}
             onHud={setHud}
@@ -666,6 +709,7 @@ export default function App() {
           <p>Master the slope. Keep your wheels gripping.<br />Race drivers from anywhere.</p>
           <div className="menu-buttons">
             <button className="primary" onClick={() => { setSoloFinished(false); setMode('solo'); }}>▶ SOLO CLIMB</button>
+            <button className="secondary" onClick={startTimeTrial}>⏱ TIME TRIAL</button>
             <button className="secondary" onClick={() => { setError(''); setMode('onlineLobby'); }}>🌐 ONLINE MULTIPLAYER</button>
           </div>
           <div className="world-picker">
@@ -714,24 +758,25 @@ export default function App() {
         />
       )}
 
-      {(mode === 'solo' || mode === 'onlineRace') && (
+      {(mode === 'solo' || mode === 'timeTrial' || mode === 'onlineRace') && (
         <>
           <div className="game-toolbar">
             <div>
-              <strong>{mode === 'solo' ? 'SOLO CLIMB' : `ONLINE RACE · ROOM ${room?.code ?? ''}`}</strong>
-              <small>{mode === 'solo' ? 'FULL 3D RIGID-BODY VEHICLE PHYSICS' : `${room?.players.length ?? 1} DRIVERS · LIVE ONLINE RACE`}</small>
+              <strong>{mode === 'timeTrial' ? 'TIME TRIAL' : mode === 'solo' ? 'SOLO CLIMB' : `ONLINE RACE · ROOM ${room?.code ?? ''}`}</strong>
+              <small>{mode === 'onlineRace' ? `${room?.players.length ?? 1} DRIVERS · LIVE ONLINE RACE` : 'FULL 3D RIGID-BODY VEHICLE PHYSICS'}</small>
             </div>
-            <button className="secondary back" onClick={mode === 'solo' ? () => setMode('menu') : leaveRoom}>
-              ← {mode === 'solo' ? 'BACK TO GARAGE' : 'LEAVE RACE'}
+            <button className="secondary back" onClick={mode === 'onlineRace' ? leaveRoom : () => { setMode('menu'); setTrialStartedAt(null); }}>
+              ← {mode === 'onlineRace' ? 'LEAVE RACE' : 'BACK TO GARAGE'}
             </button>
           </div>
-          <PlayerHud hud={hud} name={mode === 'solo' ? playerName : localPlayerName} />
+          <PlayerHud hud={hud} name={mode === 'onlineRace' ? localPlayerName : playerName} />
           <TrackMap
             hud={hud}
             terrainType={terrainType}
             opponents={mode === 'onlineRace' ? mapOpponents : []}
-            localColor={mode === 'solo' ? '#f5a623' : localPlayerColor}
+            localColor={mode === 'onlineRace' ? localPlayerColor : '#f5a623'}
           />
+          {mode === 'timeTrial' && <div className="trial-clock"><small>TIME</small><strong>{formatTrialTime(trialElapsedMs)}</strong></div>}
           <div className="player-control-hint hint-solo">
             W ACCELERATE · S REVERSE · A / D STEER · SPACE BRAKE · R RESET
           </div>
@@ -766,6 +811,18 @@ export default function App() {
             <button className="primary online-action" onClick={() => { setSoloFinished(false); setMode('menu'); }}>
               BACK TO GARAGE
             </button>
+          </div>
+        </div>
+      )}
+
+      {mode === 'timeTrial' && trialResultMs !== null && (
+        <div className="race-result-overlay">
+          <div className="race-result-card">
+            <div className="online-panel-eyebrow">SUMMIT REACHED</div>
+            <h2>TIME: {formatTrialTime(trialResultMs)}</h2>
+            <p>{trialBestMs === trialResultMs ? 'NEW PERSONAL BEST!' : `PERSONAL BEST: ${trialBestMs === null ? '—' : formatTrialTime(trialBestMs)}`}</p>
+            <button className="primary online-action" onClick={startTimeTrial}>RACE AGAIN</button>
+            <button className="secondary online-action" onClick={() => { setMode('menu'); setTrialStartedAt(null); }}>BACK TO GARAGE</button>
           </div>
         </div>
       )}
