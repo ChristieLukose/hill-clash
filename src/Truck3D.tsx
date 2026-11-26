@@ -11,6 +11,7 @@ import {
 import * as THREE from 'three';
 import { mountainHeight, roadCenterX, roadHalfWidth, TRACK_LENGTH, type TerrainType } from './HillTerrain';
 import type { VehicleNetworkState } from './network';
+import TruckVisual from './TruckVisual';
 
 const MASS = 1250;
 const WHEEL_RADIUS = 0.43;
@@ -559,54 +560,7 @@ export default function Truck3D({
         restitution={0.01}
       />
 
-      <group>
-        {/* The chassis' local +X face is the front of the truck. */}
-        <mesh castShadow position={[0, 0.18, 0]}>
-          <boxGeometry args={[2.78, 0.58, 1.42]} />
-          <meshStandardMaterial color={color} roughness={0.42} metalness={0.24} />
-        </mesh>
-        <mesh castShadow position={[0.35, 0.77, 0]}>
-          <boxGeometry args={[1.12, 0.78, 1.12]} />
-          <meshStandardMaterial color="#202a34" roughness={0.34} />
-        </mesh>
-        <mesh position={[0.93, 0.78, 0]}>
-          <boxGeometry args={[0.025, 0.46, 0.96]} />
-          <meshStandardMaterial color="#94d8f4" transparent opacity={0.72} />
-        </mesh>
-        {[-1, 1].map((side) => (
-          <mesh key={side} position={[0.36, 0.78, side * 0.57]}>
-            <boxGeometry args={[0.76, 0.44, 0.025]} />
-            <meshStandardMaterial color="#94d8f4" transparent opacity={0.56} />
-          </mesh>
-        ))}
-        <mesh position={[1.13, 0.24, 0]}>
-          <boxGeometry args={[0.45, 0.18, 1.12]} />
-          <meshStandardMaterial color="#252a30" />
-        </mesh>
-
-        {WHEELS.map((wheel, index) => (
-          <group
-            key={`${wheel.x}-${wheel.z}`}
-            ref={(node) => { wheelVisuals.current[index] = node; }}
-            position={[wheel.x, WHEEL_MOUNT_Y - WHEEL_REST_LENGTH, wheel.z]}
-          >
-            <group>
-              <mesh castShadow rotation={[Math.PI / 2, 0, 0]}>
-                <cylinderGeometry args={[WHEEL_RADIUS, WHEEL_RADIUS, 0.32, 24]} />
-                <meshStandardMaterial color="#171a21" roughness={0.95} />
-              </mesh>
-              <mesh rotation={[Math.PI / 2, 0, 0]}>
-                <cylinderGeometry args={[0.23, 0.23, 0.33, 18]} />
-                <meshStandardMaterial color="#aab0b5" metalness={0.68} roughness={0.3} />
-              </mesh>
-              <mesh position={[0, 0, 0.17]}>
-                <cylinderGeometry args={[0.075, 0.075, 0.015, 12]} />
-                <meshStandardMaterial color="#4a535c" metalness={0.65} />
-              </mesh>
-            </group>
-          </group>
-        ))}
-      </group>
+      <TruckVisual color={color} wheelRefs={wheelVisuals} />
       <Html position={[0, 2.05, 0]} center distanceFactor={13} style={{ pointerEvents: 'none' }}>
         <div className="truck-nameplate" style={{ borderColor: color }}>
           <span className="truck-nameplate-dot" style={{ background: color }} />
