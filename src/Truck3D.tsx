@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, type RefObject } from 'react';
 import { useFrame } from '@react-three/fiber';
+import { Html } from '@react-three/drei';
 import {
   CuboidCollider,
   RapierRigidBody,
@@ -9,6 +10,7 @@ import {
 } from '@react-three/rapier';
 import * as THREE from 'three';
 import { mountainHeight, roadCenterX, roadHeight } from './HillTerrain';
+import type { VehicleNetworkState } from './network';
 
 const MASS = 1250;
 const WHEEL_RADIUS = 0.43;
@@ -70,6 +72,10 @@ type Truck3DProps = {
   active: boolean;
   camera: RefObject<THREE.PerspectiveCamera | null>;
   onHud?: (hud: VehicleHud) => void;
+  playerName: string;
+  startProgress?: number;
+  onNetworkState?: (state: VehicleNetworkState) => void;
+  onFinish?: () => void;
 };
 
 function isPressed(key: string, code?: string) {
@@ -100,6 +106,10 @@ export default function Truck3D({
   active,
   camera,
   onHud,
+  playerName,
+  startProgress = 2,
+  onNetworkState,
+  onFinish,
 }: Truck3DProps) {
   const { world, rapier } = useRapier();
   const body = useRef<RapierRigidBody>(null);
@@ -110,8 +120,12 @@ export default function Truck3D({
   const hudClock = useRef(0);
   const activeRef = useRef(active);
   const onHudRef = useRef(onHud);
+  const networkStateRef = useRef(onNetworkState);
+  const finishRef = useRef(onFinish);
+  const networkClock = useRef(0);
+  const finishSent = useRef(false);
   const spawn = useMemo<[number, number, number]>(() => {
-    const progress = 2;
+    const progress = startProgress;
     const centerX = roadCenterX(progress) + laneStart;
     // The chassis is rotated 90 degrees around Y: local wheel Z becomes
     // world X and local wheel X advances along the road toward -Z.
@@ -126,10 +140,12 @@ export default function Truck3D({
     const hubToGroundReach = WHEEL_REST_LENGTH + WHEEL_RADIUS;
     const bodyHeight = highestWheelGround + hubToGroundReach - WHEEL_MOUNT_Y - 0.02;
     return [centerX, bodyHeight, -progress];
-  }, [laneStart]);
+  }, [laneStart, startProgress]);
 
   activeRef.current = active;
   onHudRef.current = onHud;
+  networkStateRef.current = onNetworkState;
+  finishRef.current = onFinish;
 
   useBeforePhysicsStep((physicsWorld) => {
     const chassis = body.current;
@@ -178,6 +194,7 @@ export default function Truck3D({
       chassis.setAngvel({ x: 0, y: 0, z: 0 }, true);
       wheelSpinPrevious.current = [0, 0, 0, 0];
       wheelSlip.current = [0, 0, 0, 0];
+      finishSent.current = false;
       pressedKeys.delete(player === 1 ? 'r' : 'enter');
     }
 
@@ -254,6 +271,26 @@ export default function Truck3D({
         camera.current.up.set(0, 1, 0);
         camera.current.lookAt(p.x + forward.x, p.y + 0.45, p.z + forward.z);
       }
+    }
+
+    // Send compact vehicle snapshots to the room server at 20 Hz.
+    // The room server relays these transforms to the other racers.
+    networkClock.current += delta;
+    const progressNow = Math.max(0, -p.z);
+    if (activeRef.current && networkClock.current >= 0.05) {
+      networkClock.current = 0;
+      if (networkStateRef.current) {
+        networkStateRef.current({
+          position: { x: p.x, y: p.y, z: p.z },
+          rotation: { x: q.x, y: q.y, z: q.z, w: q.w },
+          speed: speed,
+          progress: progressNow,
+        });
+      }
+    }
+    if (activeRef.current && progressNow >= 72 && !finishSent.current) {
+      finishSent.current = true;
+      finishRef.current?.();
     }
 
     // Keep HUD live even if the vehicle controller fails to initialize. This
@@ -370,6 +407,13 @@ export default function Truck3D({
           </group>
         ))}
       </group>
+      <Html position={[0, 2.05, 0]} center distanceFactor={13} style={{ pointerEvents: 'none' }}>
+        <div className="truck-nameplate" style={{ borderColor: color }}>
+          <span className="truck-nameplate-dot" style={{ background: color }} />
+          <span>{playerName}</span>
+          {player === 1 && <small>YOU</small>}
+        </div>
+      </Html>
     </RigidBody>
   );
 }
