@@ -1397,3 +1397,64 @@ body,
     font-size: 4px;
   }
 }
+
+
+
+/* Engine RPM gauge and automatic gearbox readout. */
+.engine-rpm {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin-top: 5px;
+}
+.engine-rpm > div:first-child {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 5px;
+  min-width: 64px;
+}
+.engine-rpm span {
+  color: #9fb2c3;
+  font-size: 7px;
+  font-weight: 900;
+  letter-spacing: .8px;
+}
+.engine-rpm strong {
+  color: #f4f7fa;
+  font-size: 9px;
+  font-variant-numeric: tabular-nums;
+}
+.engine-rpm-track {
+  flex: 1;
+  height: 5px;
+  border-radius: 8px;
+  overflow: hidden;
+  background: #3c4b58;
+}
+.engine-rpm-track i {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg,#62d79b 0%,#ffca3a 72%,#ef654d 100%);
+  transition: width .12s linear;
+}
+@media (max-width: 760px) {
+  .player-hud .engine-rpm {
+    flex: 0 0 100%;
+    gap: 6px;
+    margin-top: 1px;
+  }
+  .player-hud .engine-rpm > div:first-child {
+    min-width: 58px;
+  }
+  .player-hud .engine-rpm span {
+    font-size: 6px;
+  }
+  .player-hud .engine-rpm strong {
+    font-size: 8px;
+  }
+  .player-hud .engine-rpm-track {
+    height: 3px;
+  }
+}
