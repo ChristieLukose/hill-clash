@@ -1234,15 +1234,17 @@ body,
 .track-map-panel {
   position: absolute;
   z-index: 5;
-  top: 108px;
+  /* The toolbar sits at 94px on desktop; keep the map below it. */
+  top: 158px;
   right: 12px;
   width: 118px;
   padding: 8px 8px 7px;
-  border: 1px solid #ffffff35;
+  border: 1px solid rgba(255,255,255,.22);
   border-radius: 12px;
-  background: rgba(17, 29, 43, .86);
-  box-shadow: 0 8px 24px rgba(0,0,0,.22);
-  backdrop-filter: blur(9px);
+  background: rgba(17, 29, 43, .52);
+  box-shadow: 0 8px 24px rgba(0,0,0,.16);
+  -webkit-backdrop-filter: blur(14px) saturate(125%);
+  backdrop-filter: blur(14px) saturate(125%);
   pointer-events: none;
 }
 .track-map-heading {
