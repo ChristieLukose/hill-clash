@@ -9,7 +9,7 @@ import {
   useRapier,
 } from '@react-three/rapier';
 import * as THREE from 'three';
-import { mountainHeight, roadCenterX, roadHeight, type TerrainType } from './HillTerrain';
+import { mountainHeight, roadCenterX, type TerrainType } from './HillTerrain';
 import type { VehicleNetworkState } from './network';
 
 const MASS = 1250;
@@ -161,7 +161,6 @@ export default function Truck3D({
   const finishSent = useRef(false);
   const overturnedClock = useRef(0);
   const offTrackClock = useRef(0);
-  const wrongWayClock = useRef(0);
   const safeProgress = useRef(startProgress);
   const motionWarning = useRef('');
   const warningHold = useRef(0);
@@ -228,7 +227,6 @@ export default function Truck3D({
       finishSent.current = false;
       overturnedClock.current = 0;
       offTrackClock.current = 0;
-      wrongWayClock.current = 0;
       safeProgress.current = startProgress;
       motionWarning.current = '';
       warningHold.current = 0;
@@ -257,40 +255,28 @@ export default function Truck3D({
     const progressAlongTrack = THREE.MathUtils.clamp(-translation.z, 2, 70);
     const trackCenter = roadCenterX(progressAlongTrack, terrainType);
     const lateralOffset = translation.x - trackCenter;
-    const velocity = chassis.linvel();
-    const progressAhead = Math.min(71, progressAlongTrack + 0.8);
-    const progressBehind = Math.max(1, progressAlongTrack - 0.8);
-    const tangent = new THREE.Vector3(
-      (roadCenterX(progressAhead, terrainType) - roadCenterX(progressBehind, terrainType)) /
-        Math.max(0.1, progressAhead - progressBehind),
-      (roadHeight(progressAhead, terrainType) - roadHeight(progressBehind, terrainType)) /
-        Math.max(0.1, progressAhead - progressBehind),
-      -1,
-    ).normalize();
-    const alongTrackSpeed = new THREE.Vector3(velocity.x, velocity.y, velocity.z).dot(tangent);
     const isOffTrack = Math.abs(lateralOffset) > 6.1;
-    const isGoingWrongWay = alongTrackSpeed < -1.4 && Math.hypot(velocity.x, velocity.z) > 2;
 
-    offTrackClock.current = isOffTrack ? offTrackClock.current + dt : Math.max(0, offTrackClock.current - dt * 2);
-    wrongWayClock.current = isGoingWrongWay ? wrongWayClock.current + dt : Math.max(0, wrongWayClock.current - dt * 2);
+    offTrackClock.current = isOffTrack
+      ? offTrackClock.current + dt
+      : Math.max(0, offTrackClock.current - dt * 2);
     warningHold.current = Math.max(0, warningHold.current - dt);
 
-    if (Math.abs(lateralOffset) < 4.5 && chassisUp.y > 0.45 && !isGoingWrongWay) {
+    // Reversing on the road is allowed. Only lateral departure from the track
+    // can trigger an off-track warning or automatic return.
+    if (Math.abs(lateralOffset) < 4.5 && chassisUp.y > 0.45) {
       safeProgress.current = Math.max(safeProgress.current, progressAlongTrack);
     }
 
     if (isOffTrack && offTrackClock.current > 0.7) {
       motionWarning.current = 'OFF TRACK';
-    } else if (isGoingWrongWay && wrongWayClock.current > 0.7) {
-      motionWarning.current = 'WRONG WAY';
     } else if (warningHold.current <= 0) {
       motionWarning.current = '';
     }
 
     const offTrackRecovery = offTrackClock.current >= 3.6;
-    const wrongWayRecovery = wrongWayClock.current >= 4.2;
-    if (overturnedClock.current >= 2.2 || belowTerrain || offTrackRecovery || wrongWayRecovery) {
-      const recoveryProgress = wrongWayRecovery
+    if (overturnedClock.current >= 2.2 || belowTerrain || offTrackRecovery) {
+      const recoveryProgress = offTrackRecovery
         ? THREE.MathUtils.clamp(safeProgress.current, 2, 70)
         : progressAlongTrack;
       const recoverySpawn = spawnAtProgress(recoveryProgress, laneStart, terrainType);
@@ -306,12 +292,9 @@ export default function Truck3D({
       steeringValue.current = 0;
       overturnedClock.current = 0;
       offTrackClock.current = 0;
-      wrongWayClock.current = 0;
-      motionWarning.current = wrongWayRecovery
-        ? 'WRONG WAY · RETURNED TO CHECKPOINT'
-        : offTrackRecovery
-          ? 'OFF TRACK · RETURNED TO TRACK'
-          : 'TRUCK RECOVERED';
+      motionWarning.current = offTrackRecovery
+        ? 'OFF TRACK · RETURNED TO TRACK'
+        : 'TRUCK RECOVERED';
       warningHold.current = 2.6;
       translation = chassis.translation();
     }
