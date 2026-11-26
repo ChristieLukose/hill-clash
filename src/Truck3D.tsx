@@ -29,6 +29,23 @@ const WHEELS = [
 ] as const;
 
 const pressedKeys = new Set<string>();
+
+type TouchControl = 'left' | 'right' | 'throttle' | 'reverse' | 'brake' | 'reset';
+
+const TOUCH_CONTROL_KEYS: Record<TouchControl, string> = {
+  left: 'a',
+  right: 'd',
+  throttle: 'w',
+  reverse: 's',
+  brake: ' ',
+  reset: 'r',
+};
+
+export function setTouchControl(control: TouchControl, pressed: boolean) {
+  const key = TOUCH_CONTROL_KEYS[control];
+  if (pressed) pressedKeys.add(key);
+  else pressedKeys.delete(key);
+}
 if (typeof window !== 'undefined' && typeof document !== 'undefined') {
   const onKeyDown = (event: KeyboardEvent) => {
     const key = event.key.toLowerCase();
@@ -49,6 +66,9 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') {
   document.addEventListener('keydown', onKeyDown, true);
   document.addEventListener('keyup', onKeyUp, true);
   window.addEventListener('blur', () => pressedKeys.clear());
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) pressedKeys.clear();
+  });
 }
 
 export type VehicleHud = {
