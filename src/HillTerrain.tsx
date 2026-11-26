@@ -5,6 +5,8 @@ import { RigidBody } from '@react-three/rapier';
 
 export type TerrainType = 'mountain' | 'desert' | 'snow' | 'jungle';
 
+export const TRACK_LENGTH = 240;
+
 export const TERRAIN_OPTIONS: Array<{ id: TerrainType; name: string; detail: string }> = [
   { id: 'mountain', name: 'Mountain', detail: 'Rocky alpine trail' },
   { id: 'desert', name: 'Desert', detail: 'Dunes and dry canyons' },
@@ -135,9 +137,9 @@ export function mountainHeight(x: number, z: number, terrainType: TerrainType = 
 
 function createMountainGeometry(terrainType: TerrainType) {
   const width = 90;
-  const depth = 150;
+  const depth = 520;
   const xSegments = 140;
-  const zSegments = 220;
+  const zSegments = 620;
   const positions: number[] = [];
   const indices: number[] = [];
 
@@ -170,9 +172,9 @@ function createMountainGeometry(terrainType: TerrainType) {
 }
 
 function createTrailGeometry(terrainType: TerrainType) {
-  const segments = 180;
+  const segments = 600;
   const startZ = 14;
-  const endZ = -72;
+  const endZ = -TRACK_LENGTH;
   const positions: number[] = [];
   const indices: number[] = [];
 
@@ -201,9 +203,9 @@ function createTrailGeometry(terrainType: TerrainType) {
 }
 
 function createKerbGeometry(terrainType: TerrainType, side: -1 | 1) {
-  const segments = 220;
+  const segments = 600;
   const startZ = 14;
-  const endZ = -72;
+  const endZ = -TRACK_LENGTH;
   const positions: number[] = [];
   const colors: number[] = [];
   const indices: number[] = [];
@@ -349,13 +351,13 @@ function SafetyRailRun({ start, end, side, terrainType }: {
   );
 }
 
-function TimberBridge({ terrainType }: { terrainType: TerrainType }) {
+function TimberBridge({ terrainType, startProgress = 34 }: { terrainType: TerrainType; startProgress?: number }) {
   const planks = [];
-  for (let progress = 34; progress <= 40.5; progress += 0.78) {
+  for (let progress = startProgress; progress <= startProgress + 6.5; progress += 0.78) {
     planks.push(progress);
   }
-  const supports = [34, 37.3, 40.5];
-  const centerProgress = 37.2;
+  const supports = [startProgress, startProgress + 3.25, startProgress + 6.5];
+  const centerProgress = startProgress + 3.25;
   const centerX = roadCenterX(centerProgress, terrainType);
   const centerY = mountainHeight(centerX, -centerProgress, terrainType);
 
@@ -401,7 +403,7 @@ function TimberBridge({ terrainType }: { terrainType: TerrainType }) {
 }
 
 function FinishGate({ terrainType }: { terrainType: TerrainType }) {
-  const progress = 72;
+  const progress = TRACK_LENGTH;
   const center = roadCenterX(progress, terrainType);
   const baseY = mountainHeight(center, -progress, terrainType) + 0.08;
   const heading = -Math.atan(
@@ -469,6 +471,13 @@ const ROCK_OUTCROPS = [
   { progress: 40, side: 1, size: 3.0, rotation: 0.6 },
   { progress: 55, side: -1, size: 2.4, rotation: 1.8 },
   { progress: 65, side: 1, size: 2.8, rotation: 0.4 },
+  { progress: 82, side: -1, size: 3.1, rotation: 0.7 },
+  { progress: 101, side: 1, size: 2.6, rotation: 1.2 },
+  { progress: 124, side: -1, size: 3.4, rotation: 0.3 },
+  { progress: 148, side: 1, size: 2.9, rotation: 1.7 },
+  { progress: 171, side: -1, size: 3.2, rotation: 0.8 },
+  { progress: 194, side: 1, size: 2.7, rotation: 0.5 },
+  { progress: 219, side: -1, size: 3.3, rotation: 1.3 },
 ];
 
 function RockOutcrops({ terrainType }: { terrainType: TerrainType }) {
@@ -543,6 +552,13 @@ const ROCKS = [
   { progress: 35, side: 1, size: 1.2, rotation: 0.2 },
   { progress: 47, side: -1, size: 1.55, rotation: 1.4 },
   { progress: 58, side: 1, size: 1.25, rotation: 0.6 },
+  { progress: 84, side: 1, size: 1.3, rotation: 1.2 },
+  { progress: 107, side: -1, size: 1.5, rotation: 0.3 },
+  { progress: 132, side: 1, size: 1.15, rotation: 0.9 },
+  { progress: 157, side: -1, size: 1.35, rotation: 1.6 },
+  { progress: 181, side: 1, size: 1.5, rotation: 0.4 },
+  { progress: 207, side: -1, size: 1.25, rotation: 1.1 },
+  { progress: 229, side: 1, size: 1.4, rotation: 0.7 },
 ];
 
 export default function HillTerrain({ terrainType = 'mountain' }: { terrainType?: TerrainType }) {
@@ -565,15 +581,28 @@ export default function HillTerrain({ terrainType = 'mountain' }: { terrainType?
       <SafetyRailRun start={29} end={38} side={1} terrainType={terrainType} />
       <SafetyRailRun start={46} end={55} side={-1} terrainType={terrainType} />
       <SafetyRailRun start={59} end={66} side={1} terrainType={terrainType} />
-      <CheckpointGate progress={22} label="CHECKPOINT 01" terrainType={terrainType} />
+      <SafetyRailRun start={78} end={91} side={-1} terrainType={terrainType} />
+      <SafetyRailRun start={106} end={119} side={1} terrainType={terrainType} />
+      <SafetyRailRun start={137} end={151} side={-1} terrainType={terrainType} />
+      <SafetyRailRun start={165} end={179} side={1} terrainType={terrainType} />
+      <SafetyRailRun start={194} end={208} side={-1} terrainType={terrainType} />
+      <SafetyRailRun start={220} end={233} side={1} terrainType={terrainType} />
+      <CheckpointGate progress={55} label="CHECKPOINT 01" terrainType={terrainType} />
       <TimberBridge terrainType={terrainType} />
-      <CheckpointGate progress={48} label="CHECKPOINT 02" terrainType={terrainType} />
+      <TimberBridge terrainType={terrainType} startProgress={145} />
+      <CheckpointGate progress={120} label="CHECKPOINT 02" terrainType={terrainType} />
+      <CheckpointGate progress={185} label="CHECKPOINT 03" terrainType={terrainType} />
       <FinishGate terrainType={terrainType} />
       <RockOutcrops terrainType={terrainType} />
       <TurnMarker progress={15} side={-1} terrainType={terrainType} direction="RIGHT" />
       <TurnMarker progress={33} side={1} terrainType={terrainType} direction="LEFT" />
       <TurnMarker progress={52} side={-1} terrainType={terrainType} direction="RIGHT" />
-      <TurnMarker progress={63} side={1} terrainType={terrainType} direction="LEFT" />
+      <TurnMarker progress={82} side={1} terrainType={terrainType} direction="LEFT" />
+      <TurnMarker progress={108} side={-1} terrainType={terrainType} direction="RIGHT" />
+      <TurnMarker progress={137} side={1} terrainType={terrainType} direction="LEFT" />
+      <TurnMarker progress={164} side={-1} terrainType={terrainType} direction="RIGHT" />
+      <TurnMarker progress={193} side={1} terrainType={terrainType} direction="LEFT" />
+      <TurnMarker progress={222} side={-1} terrainType={terrainType} direction="RIGHT" />
       {ROCKS.map((rock) => {
         const x = roadCenterX(rock.progress, terrainType)
           + rock.side * (roadHalfWidth(rock.progress, terrainType) + rock.size + 0.62);
@@ -596,8 +625,8 @@ export default function HillTerrain({ terrainType = 'mountain' }: { terrainType?
           </RigidBody>
         );
       })}
-      {Array.from({ length: 18 }, (_, i) => {
-        const progress = 5 + i * 4.2;
+      {Array.from({ length: 48 }, (_, i) => {
+        const progress = 6 + i * 4.9;
         const z = -progress;
         const center = roadCenterX(progress, terrainType);
         const side = i % 2 === 0 ? -1 : 1;
