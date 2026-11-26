@@ -477,7 +477,7 @@ function RockOutcrops({ terrainType }: { terrainType: TerrainType }) {
     <group>
       {ROCK_OUTCROPS.map((rock) => {
         const z = -rock.progress;
-        const x = roadCenterX(rock.progress, terrainType) + rock.side * (13.5 + rock.size * 0.35);
+        const x = roadCenterX(rock.progress, terrainType) + rock.side * (17 + rock.size * 0.4);
         const y = mountainHeight(x, z, terrainType);
         return (
           <group key={rock.progress} position={[x, y, z]} rotation={[0, rock.rotation, 0]}>
