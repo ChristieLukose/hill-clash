@@ -120,14 +120,14 @@ export default function TruckVisual({ color, wheelRefs }: TruckVisualProps) {
         <boxGeometry args={[0.055, 0.34, 0.68]} />
         <meshStandardMaterial color="#0d1419" metalness={0.25} roughness={0.64} />
       </mesh>
+      {[-0.105, -0.035, 0.035, 0.105].map((y) => (
+        <mesh key={y} position={[1.468, 0.39 + y, 0]}>
+          <boxGeometry args={[0.018, 0.018, 0.58]} />
+          <meshStandardMaterial color="#77838a" metalness={0.82} roughness={0.3} />
+        </mesh>
+      ))}
       {[-1, 1].map((side) => (
         <group key={side}>
-          {[-0.105, -0.035, 0.035, 0.105].map((y) => (
-            <mesh key={y} position={[1.468, 0.39 + y, side * 0.0]}>
-              <boxGeometry args={[0.018, 0.018, 0.58]} />
-              <meshStandardMaterial color="#77838a" metalness={0.82} roughness={0.3} />
-            </mesh>
-          ))}
           <mesh castShadow position={[1.45, 0.59, side * 0.49]}>
             <boxGeometry args={[0.075, 0.19, 0.25]} />
             <meshPhysicalMaterial color="#d9eaf0" emissive="#a9dfff" emissiveIntensity={1.15} roughness={0.16} clearcoat={1} />
@@ -209,11 +209,11 @@ export default function TruckVisual({ color, wheelRefs }: TruckVisualProps) {
                   <meshStandardMaterial color="#343a3d" roughness={0.84} metalness={0.08} />
                 </mesh>
                 <mesh>
-                  <cylinderGeometry args={[0.245, 0.245, 0.025, 28]} />
+                  <cylinderGeometry args={[0.245, 0.245, 0.025, 28]} rotation={[Math.PI / 2, 0, 0]} />
                   <meshStandardMaterial color="#69747b" metalness={0.78} roughness={0.3} />
                 </mesh>
                 <mesh position={[0, 0, side * 0.018]}>
-                  <cylinderGeometry args={[0.205, 0.205, 0.018, 28]} />
+                  <cylinderGeometry args={[0.205, 0.205, 0.018, 28]} rotation={[Math.PI / 2, 0, 0]} />
                   <meshStandardMaterial color="#222a30" metalness={0.72} roughness={0.32} />
                 </mesh>
                 {spokes.map((spoke) => (
@@ -227,7 +227,7 @@ export default function TruckVisual({ color, wheelRefs }: TruckVisualProps) {
                   </mesh>
                 ))}
                 <mesh position={[0, 0, side * 0.052]}>
-                  <cylinderGeometry args={[0.085, 0.085, 0.025, 20]} />
+                  <cylinderGeometry args={[0.085, 0.085, 0.025, 20]} rotation={[Math.PI / 2, 0, 0]} />
                   <meshStandardMaterial color="#aeb7bc" metalness={0.9} roughness={0.22} />
                 </mesh>
                 {lugs.map((lug) => {
@@ -237,7 +237,7 @@ export default function TruckVisual({ color, wheelRefs }: TruckVisualProps) {
                       key={lug}
                       position={[Math.sin(angle) * 0.135, Math.cos(angle) * 0.135, side * 0.052]}
                     >
-                      <cylinderGeometry args={[0.018, 0.018, 0.025, 8]} />
+                      <cylinderGeometry args={[0.018, 0.018, 0.025, 8]} rotation={[Math.PI / 2, 0, 0]} />
                       <meshStandardMaterial color="#d1d6d8" metalness={0.92} roughness={0.2} />
                     </mesh>
                   );
