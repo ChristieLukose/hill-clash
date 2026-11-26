@@ -1005,3 +1005,91 @@ body,
     letter-spacing: .8px;
   }
 }
+
+
+/* Compact mobile telemetry: keep the driving view open and put only essentials in the HUD. */
+@media (max-width: 760px) {
+  .topbar {
+    padding: 7px 4vw 3px;
+    gap: 8px;
+    min-height: 44px;
+  }
+  .brand-mark {
+    width: 34px;
+    height: 34px;
+    font-size: 15px;
+    border-radius: 10px;
+  }
+  .brand {
+    font-size: 15px;
+    letter-spacing: 1px;
+  }
+  .brand small {
+    margin-top: 1px;
+    font-size: 6px;
+    letter-spacing: 1.7px;
+  }
+  .top-pill {
+    padding: 5px 7px;
+    font-size: 6px;
+    letter-spacing: .65px;
+  }
+  .game-toolbar {
+    top: 64px;
+  }
+  .player-hud {
+    top: 108px;
+    left: 9px;
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    width: fit-content;
+    max-width: calc(100% - 18px);
+    padding: 5px 9px;
+    border-radius: 9px;
+  }
+  /* The truck's floating nameplate already identifies the driver. */
+  .player-hud .player-label,
+  .player-hud .axle-loads,
+  .player-hud .traction-track,
+  .player-hud .traction-state {
+    display: none;
+  }
+  .player-hud .hud-main {
+    flex: 0 0 auto;
+    gap: 4px;
+    margin: 0;
+  }
+  .player-hud .hud-main strong {
+    font-size: 27px;
+    line-height: .95;
+  }
+  .player-hud .hud-main span {
+    font-size: 7px;
+  }
+  .player-hud .hud-main b {
+    margin-left: 5px;
+    font-size: 19px;
+  }
+  .player-hud .hud-progress {
+    display: flex;
+    align-items: baseline;
+    gap: 4px;
+    margin: 0;
+    padding: 0 0 0 9px;
+    border: 0;
+    border-left: 1px solid #ffffff30;
+  }
+  .player-hud .hud-progress span {
+    font-size: 7px;
+    letter-spacing: .45px;
+  }
+  .player-hud .hud-progress strong {
+    font-size: 9px;
+  }
+  /* Hide pitch and roll on compact screens; climb remains visible. */
+  .player-hud .hud-progress span:nth-of-type(n + 2),
+  .player-hud .hud-progress strong:nth-of-type(n + 2) {
+    display: none;
+  }
+}
