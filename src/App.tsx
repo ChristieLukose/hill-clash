@@ -1,4 +1,4 @@
-import { Suspense, useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react';
+import { Suspense, useEffect, useRef, useState, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react';
 import { Canvas } from '@react-three/fiber';
 import { Environment, PerspectiveCamera } from '@react-three/drei';
 import { Physics } from '@react-three/rapier';
@@ -309,7 +309,7 @@ type TouchButtonProps = {
   control: 'left' | 'right' | 'throttle' | 'reverse' | 'brake' | 'reset';
   className: string;
   label: string;
-  children: string;
+  children: ReactNode;
 };
 
 function TouchButton({ control, className, label, children }: TouchButtonProps) {
