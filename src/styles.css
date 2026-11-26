@@ -892,3 +892,116 @@
   .touch-reverse, .touch-brake { width: 55px; height: 45px; }
   .touch-throttle { width: 68px; height: 96px; }
 }
+
+
+/* Keep mobile gameplay locked to the device viewport and reduce HUD obstruction. */
+html,
+body,
+#root {
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+  overscroll-behavior: none;
+}
+.app-shell {
+  height: 100vh;
+  height: 100dvh;
+  min-height: 0;
+  overflow: hidden;
+}
+@media (max-width: 760px) {
+  .topbar {
+    padding: 12px 5vw 7px;
+    gap: 10px;
+  }
+  .brand-mark {
+    width: 38px;
+    height: 38px;
+    border-radius: 11px;
+  }
+  .brand {
+    font-size: 16px;
+    line-height: 1;
+  }
+  .brand small {
+    margin-top: 2px;
+    font-size: 7px;
+    letter-spacing: 2.2px;
+  }
+  .top-pill {
+    padding: 6px 8px;
+    font-size: 7px;
+    letter-spacing: .8px;
+  }
+  .game-toolbar {
+    top: 82px;
+    left: 9px;
+    right: 9px;
+    gap: 8px;
+  }
+  .game-toolbar > div {
+    padding: 7px 10px;
+    gap: 1px;
+  }
+  .game-toolbar strong {
+    font-size: 10px;
+    letter-spacing: .7px;
+  }
+  .game-toolbar small {
+    display: none;
+  }
+  .game-toolbar .back {
+    padding: 8px 9px;
+    font-size: 8px;
+    white-space: nowrap;
+  }
+  .player-hud {
+    top: 135px;
+    left: 8px;
+    width: min(218px, calc(100% - 16px));
+    padding: 7px 9px;
+    border-radius: 10px;
+  }
+  .player-label {
+    gap: 6px;
+    font-size: 10px;
+    letter-spacing: 1px;
+  }
+  .hud-main {
+    margin-top: 1px;
+  }
+  .hud-main strong {
+    font-size: 32px;
+  }
+  .hud-main b {
+    font-size: 21px;
+  }
+  .hud-progress {
+    gap: 3px 5px;
+    padding: 4px 0;
+    margin: 3px 0 4px;
+  }
+  .hud-progress span,
+  .axle-loads span {
+    font-size: 7px;
+    letter-spacing: .5px;
+  }
+  .hud-progress strong {
+    font-size: 9px;
+  }
+  .axle-loads {
+    gap: 4px;
+  }
+  .axle-loads b {
+    font-size: 8px;
+    margin-left: 2px;
+  }
+  .traction-track {
+    margin-top: 5px;
+  }
+  .traction-state {
+    margin-top: 3px;
+    font-size: 7px;
+    letter-spacing: .8px;
+  }
+}
