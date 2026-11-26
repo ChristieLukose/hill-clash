@@ -353,6 +353,9 @@ function FinishGate({ terrainType }: { terrainType: TerrainType }) {
   const progress = 72;
   const center = roadCenterX(progress, terrainType);
   const baseY = mountainHeight(center, -progress, terrainType) + 0.08;
+  const heading = -Math.atan(
+    (roadCenterX(progress + 0.35, terrainType) - roadCenterX(progress - 0.35, terrainType)) / 0.7,
+  );
   const bannerTiles = Array.from({ length: 20 }, (_, index) => ({
     x: -4.25 + (index % 10) * 0.85,
     y: 3.15 + Math.floor(index / 10) * 0.38,
@@ -370,7 +373,7 @@ function FinishGate({ terrainType }: { terrainType: TerrainType }) {
   });
 
   return (
-    <group position={[center, baseY, -progress]}>
+    <group position={[center, baseY, -progress]} rotation={[0, heading, 0]}>
       <mesh position={[-4.4, 1.65, 0]} castShadow>
         <boxGeometry args={[0.38, 3.3, 0.42]} />
         <meshStandardMaterial color="#f4b52e" metalness={0.18} roughness={0.55} />
@@ -432,6 +435,13 @@ export default function HillTerrain({ terrainType = 'mountain' }: { terrainType?
       <mesh geometry={trail} receiveShadow frustumCulled={false} renderOrder={1}>
         <meshStandardMaterial color={style.trail} roughness={1} side={THREE.DoubleSide} polygonOffset polygonOffsetFactor={-1} />
       </mesh>
+      <RoadKerbs terrainType={terrainType} />
+      <SafetyRailRun start={11} end={19} side={-1} terrainType={terrainType} />
+      <SafetyRailRun start={29} end={38} side={1} terrainType={terrainType} />
+      <SafetyRailRun start={46} end={55} side={-1} terrainType={terrainType} />
+      <SafetyRailRun start={59} end={66} side={1} terrainType={terrainType} />
+      <CheckpointGate progress={22} label="CHECKPOINT 01" terrainType={terrainType} />
+      <CheckpointGate progress={48} label="CHECKPOINT 02" terrainType={terrainType} />
       <FinishGate terrainType={terrainType} />
       {ROCKS.map((rock) => {
         const x = roadCenterX(rock.progress, terrainType) + rock.side * (5.1 + rock.size * 0.35);
