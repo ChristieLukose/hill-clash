@@ -17,8 +17,8 @@ const WHEEL_RADIUS = 0.43;
 const WHEEL_REST_LENGTH = 0.55;
 const WHEEL_MOUNT_Y = -0.28;
 const MAX_ENGINE_FORCE = 8600;
-const MAX_BRAKE_FORCE = 4200;
-const MAX_STEER_ANGLE = 0.42;
+const MAX_BRAKE_FORCE = 5000;
+const MAX_STEER_ANGLE = 0.39;
 const MAX_SPEED = 22;
 
 const WHEELS = [
@@ -27,6 +27,17 @@ const WHEELS = [
   { x: -1.02, z: -0.78, front: false, driveShare: 0.29 },
   { x: -1.02, z: 0.78, front: false, driveShare: 0.29 },
 ] as const;
+
+function spawnAtProgress(progress: number, laneStart: number): [number, number, number] {
+  const safeProgress = THREE.MathUtils.clamp(progress, 2, 70);
+  const centerX = roadCenterX(safeProgress) + laneStart;
+  const highestWheelGround = Math.max(
+    ...WHEELS.map((wheel) => mountainHeight(centerX + wheel.z, -(safeProgress + wheel.x))),
+  );
+  const hubToGroundReach = WHEEL_REST_LENGTH + WHEEL_RADIUS;
+  const bodyHeight = highestWheelGround + hubToGroundReach - WHEEL_MOUNT_Y - 0.02;
+  return [centerX, bodyHeight, -safeProgress];
+}
 
 const pressedKeys = new Set<string>();
 
@@ -144,23 +155,14 @@ export default function Truck3D({
   const finishRef = useRef(onFinish);
   const networkClock = useRef(0);
   const finishSent = useRef(false);
-  const spawn = useMemo<[number, number, number]>(() => {
-    const progress = startProgress;
-    const centerX = roadCenterX(progress) + laneStart;
-    // The chassis is rotated 90 degrees around Y: local wheel Z becomes
-    // world X and local wheel X advances along the road toward -Z.
-    // Spawn from the highest of all four wheel-ground samples, not the
-    // road-centre sample, otherwise the upper-side rays can start too high
-    // to reach the terrain and the vehicle has zero suspension load/traction.
-    const highestWheelGround = Math.max(
-      ...WHEELS.map((wheel) =>
-        mountainHeight(centerX + wheel.z, -(progress + wheel.x)),
-      ),
-    );
-    const hubToGroundReach = WHEEL_REST_LENGTH + WHEEL_RADIUS;
-    const bodyHeight = highestWheelGround + hubToGroundReach - WHEEL_MOUNT_Y - 0.02;
-    return [centerX, bodyHeight, -progress];
-  }, [laneStart, startProgress]);
+  const overturnedClock = useRef(0);
+  const steeringValue = useRef(0);
+  const cameraLookTarget = useRef(new THREE.Vector3());
+  const cameraTargetInitialized = useRef(false);
+  const spawn = useMemo<[number, number, number]>(
+    () => spawnAtProgress(startProgress, laneStart),
+    [laneStart, startProgress],
+  );
 
   activeRef.current = active;
   onHudRef.current = onHud;
@@ -187,13 +189,13 @@ export default function Truck3D({
           WHEEL_REST_LENGTH,
           WHEEL_RADIUS,
         );
-        controller.setWheelSuspensionStiffness(index, 34);
-        controller.setWheelSuspensionCompression(index, 5.2);
-        controller.setWheelSuspensionRelaxation(index, 6.4);
-        controller.setWheelMaxSuspensionTravel(index, 0.34);
-        controller.setWheelMaxSuspensionForce(index, 9200);
-        controller.setWheelFrictionSlip(index, 7.2);
-        controller.setWheelSideFrictionStiffness(index, 1.35);
+        controller.setWheelSuspensionStiffness(index, 32);
+        controller.setWheelSuspensionCompression(index, 5.6);
+        controller.setWheelSuspensionRelaxation(index, 6.8);
+        controller.setWheelMaxSuspensionTravel(index, 0.4);
+        controller.setWheelMaxSuspensionForce(index, 9800);
+        controller.setWheelFrictionSlip(index, 7.6);
+        controller.setWheelSideFrictionStiffness(index, 1.5);
       });
       vehicle.current = controller;
     }
@@ -201,7 +203,7 @@ export default function Truck3D({
     const controller = vehicle.current;
     const input = readControls(player);
     const dt = physicsWorld.integrationParameters.dt;
-    const translation = chassis.translation();
+    let translation = chassis.translation();
     const currentSpeed = controller.currentVehicleSpeed();
 
     if (input.reset) {
@@ -215,7 +217,43 @@ export default function Truck3D({
       wheelSpinPrevious.current = [0, 0, 0, 0];
       wheelSlip.current = [0, 0, 0, 0];
       finishSent.current = false;
+      overturnedClock.current = 0;
+      steeringValue.current = 0;
+      translation = chassis.translation();
       pressedKeys.delete(player === 1 ? 'r' : 'enter');
+    }
+
+    // If the truck remains upside down at low speed, right it at the nearest
+    // safe point on the trail. Also recover if it falls below the terrain.
+    const chassisUp = new THREE.Vector3(0, 1, 0).applyQuaternion(
+      new THREE.Quaternion(
+        chassis.rotation().x,
+        chassis.rotation().y,
+        chassis.rotation().z,
+        chassis.rotation().w,
+      ),
+    );
+    const belowTerrain = translation.y < mountainHeight(translation.x, translation.z) - 1.8;
+    if (chassisUp.y < 0.18 && Math.abs(currentSpeed) < 3.2) {
+      overturnedClock.current += dt;
+    } else {
+      overturnedClock.current = 0;
+    }
+    if (overturnedClock.current >= 2.2 || belowTerrain) {
+      const recoveryProgress = THREE.MathUtils.clamp(-translation.z, 2, 70);
+      const recoverySpawn = spawnAtProgress(recoveryProgress, laneStart);
+      chassis.setTranslation(
+        { x: recoverySpawn[0], y: recoverySpawn[1], z: recoverySpawn[2] },
+        true,
+      );
+      chassis.setRotation({ x: 0, y: Math.SQRT1_2, z: 0, w: Math.SQRT1_2 }, true);
+      chassis.setLinvel({ x: 0, y: 0, z: 0 }, true);
+      chassis.setAngvel({ x: 0, y: 0, z: 0 }, true);
+      wheelSpinPrevious.current = [0, 0, 0, 0];
+      wheelSlip.current = [0, 0, 0, 0];
+      steeringValue.current = 0;
+      overturnedClock.current = 0;
+      translation = chassis.translation();
     }
 
     // Engine output falls away as forward speed approaches the top gear limit.
@@ -223,14 +261,22 @@ export default function Truck3D({
     const engineForce = MAX_ENGINE_FORCE * speedFade * input.throttle;
     if (input.throttle !== 0 || input.steering !== 0 || input.brake) chassis.wakeUp();
     const progress = Math.max(0, -translation.z);
-    const terrainGrip = progress > 38 ? 4.0 : progress > 20 ? 5.6 : 7.4;
+    const terrainGrip = progress > 38 ? 5.1 : progress > 20 ? 6.2 : 7.6;
+    steeringValue.current = THREE.MathUtils.damp(
+      steeringValue.current,
+      input.steering,
+      input.steering === 0 ? 8 : 12,
+      dt,
+    );
+    const steeringSpeedFactor = THREE.MathUtils.clamp(Math.abs(currentSpeed) / 16, 0, 1);
+    const steeringLimit = THREE.MathUtils.lerp(MAX_STEER_ANGLE, MAX_STEER_ANGLE * 0.58, steeringSpeedFactor);
 
     for (let i = 0; i < WHEELS.length; i += 1) {
       const wheel = WHEELS[i];
       controller.setWheelFrictionSlip(i, terrainGrip);
       controller.setWheelEngineForce(i, engineForce * wheel.driveShare);
       controller.setWheelBrake(i, input.brake ? MAX_BRAKE_FORCE : 0);
-      controller.setWheelSteering(i, wheel.front ? input.steering * MAX_STEER_ANGLE : 0);
+      controller.setWheelSteering(i, wheel.front ? steeringValue.current * steeringLimit : 0);
     }
 
     // Exclude dynamic bodies from suspension rays; the static mountain, rocks
@@ -284,12 +330,33 @@ export default function Truck3D({
       });
 
       if (activeRef.current && camera.current) {
-        const behind = new THREE.Vector3(-8.5, 0, 0).applyQuaternion(quaternion);
-        const desired = new THREE.Vector3(p.x + behind.x, p.y + 4.6, p.z + behind.z);
-        camera.current.position.lerp(desired, 0.085);
-        const forward = new THREE.Vector3(4.2, 0, 0).applyQuaternion(quaternion);
+        // Follow vehicle yaw only so bumps and rollovers do not tilt the view.
+        const yaw = new THREE.Euler().setFromQuaternion(quaternion, 'YXZ').y;
+        const yawRotation = new THREE.Quaternion().setFromAxisAngle(
+          new THREE.Vector3(0, 1, 0),
+          yaw,
+        );
+        const speedFactor = THREE.MathUtils.clamp(Math.abs(speed) / MAX_SPEED, 0, 1);
+        const followDistance = 9.2 + speedFactor * 1.2;
+        const behind = new THREE.Vector3(-followDistance, 0, 0).applyQuaternion(yawRotation);
+        const desired = new THREE.Vector3(
+          p.x + behind.x,
+          p.y + 5.1 + speedFactor * 0.45,
+          p.z + behind.z,
+        );
+        const smooth = 1 - Math.exp(-4.5 * Math.max(delta, 0));
+        camera.current.position.lerp(desired, smooth);
+
+        const forward = new THREE.Vector3(4.6, 0, 0).applyQuaternion(yawRotation);
+        const lookTarget = new THREE.Vector3(p.x + forward.x, p.y + 0.9, p.z + forward.z);
+        if (!cameraTargetInitialized.current) {
+          cameraLookTarget.current.copy(lookTarget);
+          cameraTargetInitialized.current = true;
+        } else {
+          cameraLookTarget.current.lerp(lookTarget, 1 - Math.exp(-6 * Math.max(delta, 0)));
+        }
         camera.current.up.set(0, 1, 0);
-        camera.current.lookAt(p.x + forward.x, p.y + 0.45, p.z + forward.z);
+        camera.current.lookAt(cameraLookTarget.current);
       }
     }
 
@@ -375,8 +442,15 @@ export default function Truck3D({
         args={[1.38, 0.42, 0.72]}
         position={[0, 0.12, 0]}
         mass={MASS}
-        friction={0.85}
-        restitution={0}
+        friction={0.95}
+        restitution={0.01}
+      />
+      <CuboidCollider
+        args={[0.58, 0.39, 0.56]}
+        position={[0.35, 0.77, 0]}
+        density={0.35}
+        friction={0.8}
+        restitution={0.01}
       />
 
       <group>
