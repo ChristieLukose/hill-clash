@@ -47,9 +47,9 @@ export function roadCenterX(progress: number, terrainType: TerrainType = 'mounta
 export function roadHalfWidth(progress: number, terrainType: TerrainType = 'mountain') {
   const distance = Math.max(0, progress);
   const base = terrainType === 'snow' ? 3.95 : terrainType === 'desert' ? 4.45 : 4.2;
-  const narrowOne = Math.exp(-((distance - 20) / 4.2) ** 2) * 0.62;
-  const narrowTwo = Math.exp(-((distance - 49) / 3.8) ** 2) * 0.48;
-  const widePass = Math.exp(-((distance - 34) / 6.5) ** 2) * 0.42;
+  const narrowOne = Math.exp(-(((distance - 20) / 4.2) ** 2)) * 0.62;
+  const narrowTwo = Math.exp(-(((distance - 49) / 3.8) ** 2)) * 0.48;
+  const widePass = Math.exp(-(((distance - 34) / 6.5) ** 2)) * 0.42;
   return THREE.MathUtils.clamp(base - narrowOne - narrowTwo + widePass, 3.35, 4.75);
 }
 
@@ -198,6 +198,155 @@ function createTrailGeometry(terrainType: TerrainType) {
   geometry.computeBoundingBox();
   geometry.computeBoundingSphere();
   return geometry;
+}
+
+function createKerbGeometry(terrainType: TerrainType, side: -1 | 1) {
+  const segments = 220;
+  const startZ = 14;
+  const endZ = -72;
+  const positions: number[] = [];
+  const colors: number[] = [];
+  const indices: number[] = [];
+  const red = new THREE.Color('#d84b3e');
+  const cream = new THREE.Color('#f5eee0');
+
+  for (let i = 0; i <= segments; i += 1) {
+    const t = i / segments;
+    const z = startZ + (endZ - startZ) * t;
+    const progress = Math.max(0, -z);
+    const center = roadCenterX(progress, terrainType);
+    const halfWidth = roadHalfWidth(progress, terrainType);
+    const innerX = center + side * (halfWidth - 0.5);
+    const outerX = center + side * (halfWidth + 0.02);
+    const innerY = mountainHeight(innerX, z, terrainType) + 0.15;
+    const outerY = mountainHeight(outerX, z, terrainType) + 0.15;
+    positions.push(innerX, innerY, z, outerX, outerY, z);
+
+    const stripe = Math.floor(i / 5) % 2 === 0 ? red : cream;
+    for (let vertex = 0; vertex < 2; vertex += 1) {
+      colors.push(stripe.r, stripe.g, stripe.b);
+    }
+    if (i < segments) {
+      const a = i * 2;
+      indices.push(a, a + 2, a + 1, a + 1, a + 2, a + 3);
+    }
+  }
+
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+  geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+  geometry.setIndex(indices);
+  geometry.computeVertexNormals();
+  geometry.computeBoundingBox();
+  geometry.computeBoundingSphere();
+  return geometry;
+}
+
+function RoadKerbs({ terrainType }: { terrainType: TerrainType }) {
+  const left = useMemo(() => createKerbGeometry(terrainType, -1), [terrainType]);
+  const right = useMemo(() => createKerbGeometry(terrainType, 1), [terrainType]);
+  return (
+    <group>
+      <mesh geometry={left} receiveShadow renderOrder={2}>
+        <meshStandardMaterial vertexColors roughness={0.82} side={THREE.DoubleSide} />
+      </mesh>
+      <mesh geometry={right} receiveShadow renderOrder={2}>
+        <meshStandardMaterial vertexColors roughness={0.82} side={THREE.DoubleSide} />
+      </mesh>
+    </group>
+  );
+}
+
+function CheckpointGate({ progress, label, terrainType }: {
+  progress: number;
+  label: string;
+  terrainType: TerrainType;
+}) {
+  const center = roadCenterX(progress, terrainType);
+  const halfWidth = roadHalfWidth(progress, terrainType) + 0.12;
+  const baseY = mountainHeight(center, -progress, terrainType) + 0.08;
+  const heading = -Math.atan(
+    (roadCenterX(progress + 0.35, terrainType) - roadCenterX(progress - 0.35, terrainType)) / 0.7,
+  );
+  const width = halfWidth * 2;
+
+  return (
+    <group position={[center, baseY, -progress]} rotation={[0, heading, 0]}>
+      {[-1, 1].map((side) => (
+        <group key={side} position={[side * halfWidth, 1.05, 0]}>
+          <mesh castShadow>
+            <boxGeometry args={[0.28, 2.1, 0.3]} />
+            <meshStandardMaterial color="#e4ad35" metalness={0.12} roughness={0.58} />
+          </mesh>
+          <mesh position={[0, 0.74, 0.17]}>
+            <boxGeometry args={[0.34, 0.34, 0.05]} />
+            <meshStandardMaterial color="#172536" />
+          </mesh>
+        </group>
+      ))}
+      <mesh position={[0, 2.18, 0]} castShadow>
+        <boxGeometry args={[width + 0.24, 0.28, 0.34]} />
+        <meshStandardMaterial color="#172536" roughness={0.55} />
+      </mesh>
+      <mesh position={[0, 2.18, 0.19]}>
+        <boxGeometry args={[width - 0.25, 0.12, 0.035]} />
+        <meshStandardMaterial color="#ffc43a" emissive="#6b4300" emissiveIntensity={0.18} />
+      </mesh>
+      <Html position={[0, 2.18, 0.24]} center distanceFactor={17} style={{ pointerEvents: 'none' }}>
+        <div style={{
+          padding: '4px 8px',
+          borderRadius: '5px',
+          background: 'rgba(17,29,43,.92)',
+          color: '#ffd66c',
+          font: '900 9px Inter, sans-serif',
+          letterSpacing: '1.4px',
+          whiteSpace: 'nowrap',
+        }}>
+          {label}
+        </div>
+      </Html>
+    </group>
+  );
+}
+
+function SafetyRailRun({ start, end, side, terrainType }: {
+  start: number;
+  end: number;
+  side: -1 | 1;
+  terrainType: TerrainType;
+}) {
+  const sections = [];
+  for (let progress = start; progress <= end; progress += 2.2) {
+    sections.push(progress);
+  }
+  return (
+    <group>
+      {sections.map((progress) => {
+        const center = roadCenterX(progress, terrainType);
+        const halfWidth = roadHalfWidth(progress, terrainType);
+        const railX = center + side * (halfWidth + 0.62);
+        const z = -progress;
+        const baseY = mountainHeight(railX, z, terrainType);
+        const heading = roadHeading(progress, terrainType);
+        return (
+          <group key={progress} position={[railX, baseY, z]} rotation={[0, heading, 0]}>
+            <mesh position={[0, 0.62, 0]} castShadow>
+              <boxGeometry args={[0.18, 1.24, 0.2]} />
+              <meshStandardMaterial color="#514536" roughness={0.85} />
+            </mesh>
+            <mesh position={[0, 1.12, 0]} castShadow>
+              <boxGeometry args={[0.22, 0.18, 2.25]} />
+              <meshStandardMaterial color="#d7b66c" roughness={0.7} />
+            </mesh>
+            <mesh position={[0, 0.63, 0]} castShadow>
+              <boxGeometry args={[0.2, 0.14, 2.25]} />
+              <meshStandardMaterial color="#a7864b" roughness={0.78} />
+            </mesh>
+          </group>
+        );
+      })}
+    </group>
+  );
 }
 
 function FinishGate({ terrainType }: { terrainType: TerrainType }) {
