@@ -635,6 +635,7 @@ export default function App() {
             mode={mode}
             room={room}
             myPlayerId={myPlayerId}
+            terrainType={terrainType}
             playerName={localPlayerName}
             remoteStates={remoteStates}
             onHud={setHud}
