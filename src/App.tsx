@@ -220,7 +220,7 @@ type MapOpponent = {
 function trackMapPoint(progress: number, lateral: number, terrainType: TerrainType) {
   const safeProgress = THREE.MathUtils.clamp(progress, 0, 72);
   return {
-    x: 50 + (roadCenterX(safeProgress, terrainType) + lateral) * 3.3,
+    x: 50 + (roadCenterX(safeProgress, terrainType) + lateral) * 2.55,
     y: 176 - (safeProgress / 72) * 156,
   };
 }
