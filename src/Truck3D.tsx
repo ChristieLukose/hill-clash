@@ -164,6 +164,7 @@ export default function Truck3D({
   const wrongWayClock = useRef(0);
   const safeProgress = useRef(startProgress);
   const motionWarning = useRef('');
+  const warningHold = useRef(0);
   const steeringValue = useRef(0);
   const cameraLookTarget = useRef(new THREE.Vector3());
   const cameraTargetInitialized = useRef(false);
@@ -230,6 +231,7 @@ export default function Truck3D({
       wrongWayClock.current = 0;
       safeProgress.current = startProgress;
       motionWarning.current = '';
+      warningHold.current = 0;
       steeringValue.current = 0;
       translation = chassis.translation();
       pressedKeys.delete(player === 1 ? 'r' : 'enter');
@@ -271,16 +273,19 @@ export default function Truck3D({
 
     offTrackClock.current = isOffTrack ? offTrackClock.current + dt : Math.max(0, offTrackClock.current - dt * 2);
     wrongWayClock.current = isGoingWrongWay ? wrongWayClock.current + dt : Math.max(0, wrongWayClock.current - dt * 2);
+    warningHold.current = Math.max(0, warningHold.current - dt);
 
     if (Math.abs(lateralOffset) < 4.5 && chassisUp.y > 0.45 && !isGoingWrongWay) {
       safeProgress.current = Math.max(safeProgress.current, progressAlongTrack);
     }
 
-    motionWarning.current = isOffTrack && offTrackClock.current > 0.7
-      ? 'OFF TRACK'
-      : isGoingWrongWay && wrongWayClock.current > 0.7
-        ? 'WRONG WAY'
-        : '';
+    if (isOffTrack && offTrackClock.current > 0.7) {
+      motionWarning.current = 'OFF TRACK';
+    } else if (isGoingWrongWay && wrongWayClock.current > 0.7) {
+      motionWarning.current = 'WRONG WAY';
+    } else if (warningHold.current <= 0) {
+      motionWarning.current = '';
+    }
 
     const offTrackRecovery = offTrackClock.current >= 3.6;
     const wrongWayRecovery = wrongWayClock.current >= 4.2;
@@ -307,6 +312,7 @@ export default function Truck3D({
         : offTrackRecovery
           ? 'OFF TRACK · RETURNED TO TRACK'
           : 'TRUCK RECOVERED';
+      warningHold.current = 2.6;
       translation = chassis.translation();
     }
 
