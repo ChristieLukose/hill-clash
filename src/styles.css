@@ -1369,3 +1369,29 @@ body,
   }
   .track-map-svg { height: 116px; }
 }
+
+
+/* Keep the mini-map clear of the back button on narrow phone screens. */
+@media (max-width: 760px) {
+  .track-map-panel {
+    top: 154px;
+    right: 8px;
+  }
+}
+@media (max-width: 390px) {
+  .track-map-panel {
+    top: 154px;
+    right: 6px;
+    width: 68px;
+    padding: 5px 4px;
+  }
+  .track-map-svg {
+    height: 96px;
+  }
+  .track-map-heading {
+    font-size: 5px;
+  }
+  .track-map-heading span {
+    font-size: 4px;
+  }
+}
