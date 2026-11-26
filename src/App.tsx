@@ -1,10 +1,10 @@
-import { Suspense, useEffect, useRef, useState } from 'react';
+import { Suspense, useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react';
 import { Canvas } from '@react-three/fiber';
 import { Environment, PerspectiveCamera } from '@react-three/drei';
 import { Physics } from '@react-three/rapier';
 import * as THREE from 'three';
 import HillTerrain, { roadCenterX, roadHeight } from './HillTerrain';
-import Truck3D, { type VehicleHud } from './Truck3D';
+import Truck3D, { setTouchControl, type VehicleHud } from './Truck3D';
 import RemoteTruck from './RemoteTruck';
 import {
   connectSocket,
@@ -304,6 +304,53 @@ function OnlineLobby({
   );
 }
 
+
+type TouchButtonProps = {
+  control: 'left' | 'right' | 'throttle' | 'reverse' | 'brake' | 'reset';
+  className: string;
+  label: string;
+  children: string;
+};
+
+function TouchButton({ control, className, label, children }: TouchButtonProps) {
+  const update = (event: ReactPointerEvent<HTMLButtonElement>, pressed: boolean) => {
+    event.preventDefault();
+    setTouchControl(control, pressed);
+  };
+
+  return (
+    <button
+      type="button"
+      className={`touch-button ${className}`}
+      aria-label={label}
+      onPointerDown={(event) => update(event, true)}
+      onPointerUp={(event) => update(event, false)}
+      onPointerCancel={(event) => update(event, false)}
+      onPointerLeave={(event) => update(event, false)}
+      onLostPointerCapture={(event) => update(event, false)}
+    >
+      {children}
+    </button>
+  );
+}
+
+function TouchControls() {
+  return (
+    <div className="touch-controls" aria-label="Touchscreen driving controls">
+      <div className="touch-steering">
+        <TouchButton control="left" className="touch-steer" label="Steer left">◀</TouchButton>
+        <TouchButton control="right" className="touch-steer" label="Steer right">▶</TouchButton>
+        <TouchButton control="reset" className="touch-reset" label="Reset truck">↻</TouchButton>
+      </div>
+      <div className="touch-driving">
+        <TouchButton control="reverse" className="touch-reverse" label="Reverse">REV</TouchButton>
+        <TouchButton control="brake" className="touch-brake" label="Brake">BRAKE</TouchButton>
+        <TouchButton control="throttle" className="touch-throttle" label="Accelerate">▲<small>GAS</small></TouchButton>
+      </div>
+    </div>
+  );
+}
+
 export default function App() {
   const [mode, setMode] = useState<Mode>('menu');
   const [hud, setHud] = useState<VehicleHud>(EMPTY_HUD);
@@ -545,6 +592,7 @@ export default function App() {
           <div className="player-control-hint hint-solo">
             W ACCELERATE · S REVERSE · A / D STEER · SPACE BRAKE · R RESET
           </div>
+          <TouchControls />
         </>
       )}
 
