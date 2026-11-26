@@ -3,7 +3,7 @@ import { Canvas } from '@react-three/fiber';
 import { Environment, PerspectiveCamera } from '@react-three/drei';
 import { Physics } from '@react-three/rapier';
 import * as THREE from 'three';
-import HillTerrain, { roadCenterX, roadHeight, TERRAIN_OPTIONS, type TerrainType } from './HillTerrain';
+import HillTerrain, { roadCenterX, roadHeight, TERRAIN_OPTIONS, TRACK_LENGTH, type TerrainType } from './HillTerrain';
 import Truck3D, { setTouchControl, type VehicleHud } from './Truck3D';
 import RemoteTruck from './RemoteTruck';
 import {
@@ -20,7 +20,7 @@ type Mode = 'menu' | 'solo' | 'onlineLobby' | 'onlineRace';
 const EMPTY_HUD: VehicleHud = {
   speed: 0, progress: 0, gear: 'N', pitch: 0, roll: 0,
   frontLoad: 0, rearLoad: 0, frontSlip: 0, rearSlip: 0,
-  wheelContacts: 0, input: '—', lateral: 0, warning: '',
+  wheelContacts: 0, input: '—', lateral: 0, warning: '', rpm: 900,
 };
 
 const GRID_LANES = [-2.55, -0.85, 0.85, 2.55];
@@ -180,6 +180,12 @@ function PlayerHud({ hud, name }: { hud: VehicleHud; name: string }) {
       <div className="hud-main">
         <strong>{Math.round(hud.speed)}</strong><span>KM/H</span><b>{hud.gear}</b>
       </div>
+      <div className="engine-rpm">
+        <div><span>ENGINE RPM</span><strong>{Math.round(hud.rpm).toLocaleString('en-IN')}</strong></div>
+        <div className="engine-rpm-track">
+          <i style={{ width: `${Math.min(100, (hud.rpm / 6200) * 100)}%` }} />
+        </div>
+      </div>
       {hud.warning && <div className="player-warning">{hud.warning}</div>}
       <div className="hud-progress">
         <span>CLIMB</span><strong>{Math.floor(hud.progress)} m</strong>
@@ -191,10 +197,10 @@ function PlayerHud({ hud, name }: { hud: VehicleHud; name: string }) {
         role="progressbar"
         aria-label="Race progress"
         aria-valuemin={0}
-        aria-valuemax={72}
-        aria-valuenow={Math.min(72, Math.floor(hud.progress))}
+        aria-valuemax={TRACK_LENGTH}
+        aria-valuenow={Math.min(TRACK_LENGTH, Math.floor(hud.progress))}
       >
-        <i style={{ width: `${Math.min(100, Math.max(0, (hud.progress / 72) * 100))}%` }} />
+        <i style={{ width: `${Math.min(100, Math.max(0, (hud.progress / TRACK_LENGTH) * 100))}%` }} />
       </div>
       <div className="axle-loads">
         <span>FRONT LOAD <b>{hud.frontLoad.toFixed(1)} kN</b></span>
@@ -218,10 +224,10 @@ type MapOpponent = {
 };
 
 function trackMapPoint(progress: number, lateral: number, terrainType: TerrainType) {
-  const safeProgress = THREE.MathUtils.clamp(progress, 0, 72);
+  const safeProgress = THREE.MathUtils.clamp(progress, 0, TRACK_LENGTH);
   return {
     x: 50 + (roadCenterX(safeProgress, terrainType) + lateral) * 2.55,
-    y: 176 - (safeProgress / 72) * 156,
+    y: 176 - (safeProgress / TRACK_LENGTH) * 156,
   };
 }
 
@@ -236,8 +242,8 @@ function TrackMap({
   opponents: MapOpponent[];
   localColor: string;
 }) {
-  const routePoints = Array.from({ length: 37 }, (_, index) => {
-    const point = trackMapPoint(index * 2, 0, terrainType);
+  const routePoints = Array.from({ length: 49 }, (_, index) => {
+    const point = trackMapPoint(index * 5, 0, terrainType);
     return `${point.x.toFixed(1)},${point.y.toFixed(1)}`;
   });
   const routePath = `M ${routePoints.join(' L ')}`;
@@ -245,7 +251,7 @@ function TrackMap({
 
   return (
     <div className="track-map-panel">
-      <div className="track-map-heading">TRACK MAP <span>{Math.floor(hud.progress)} / 72 m</span></div>
+      <div className="track-map-heading">TRACK MAP <span>{Math.floor(hud.progress)} / {TRACK_LENGTH} m</span></div>
       <svg className="track-map-svg" viewBox="0 0 100 190" role="img" aria-label="Track map showing your position and opponents">
         <path d={routePath} className="track-map-outline" />
         <path d={routePath} className="track-map-route" />
@@ -591,7 +597,7 @@ export default function App() {
   };
   const handleFinish = () => {
     if (mode === 'onlineRace') {
-      socket.emit('race:finish', { progress: 72 });
+      socket.emit('race:finish', { progress: TRACK_LENGTH });
     } else {
       setSoloFinished(true);
     }
