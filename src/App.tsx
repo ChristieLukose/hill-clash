@@ -1,6 +1,6 @@
-import { Suspense, useEffect, useMemo, useRef, useState, type RefObject } from 'react';
+import { Suspense, useEffect, useRef, useState } from 'react';
 import { Canvas } from '@react-three/fiber';
-import { Environment, Html, PerspectiveCamera } from '@react-three/drei';
+import { Environment, PerspectiveCamera } from '@react-three/drei';
 import { Physics } from '@react-three/rapier';
 import * as THREE from 'three';
 import HillTerrain, { roadCenterX, roadHeight } from './HillTerrain';
@@ -436,7 +436,11 @@ export default function App() {
 
   function copyRoomCode() {
     if (!room) return;
-    void navigator.clipboard?.writeText(room.code)
+    if (!navigator.clipboard?.writeText) {
+      setNotice(`SHARE CODE: ${room.code}`);
+      return;
+    }
+    void navigator.clipboard.writeText(room.code)
       .then(() => setNotice('ROOM CODE COPIED'))
       .catch(() => setNotice(`SHARE CODE: ${room.code}`));
   }
