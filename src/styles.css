@@ -1093,3 +1093,23 @@ body,
     display: none;
   }
 }
+
+
+/* Icon-only pedal controls keep the mobile driving cluster compact. */
+.touch-icon {
+  display: block;
+  width: 24px;
+  height: 24px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2.2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.touch-reverse { color: #ffd18b; }
+.touch-brake { color: #9edbff; }
+.touch-throttle {
+  gap: 0;
+  font-size: 34px;
+}
+.touch-throttle small { display: none; }
