@@ -349,6 +349,57 @@ function SafetyRailRun({ start, end, side, terrainType }: {
   );
 }
 
+function TimberBridge({ terrainType }: { terrainType: TerrainType }) {
+  const planks = [];
+  for (let progress = 34; progress <= 40.5; progress += 0.78) {
+    planks.push(progress);
+  }
+  const supports = [34, 37.3, 40.5];
+  const centerProgress = 37.2;
+  const centerX = roadCenterX(centerProgress, terrainType);
+  const centerY = mountainHeight(centerX, -centerProgress, terrainType);
+
+  return (
+    <group>
+      {planks.map((progress, index) => {
+        const center = roadCenterX(progress, terrainType);
+        const halfWidth = roadHalfWidth(progress, terrainType);
+        const y = mountainHeight(center, -progress, terrainType) + 0.19;
+        const heading = roadHeading(progress, terrainType);
+        return (
+          <group key={progress} position={[center, y, -progress]} rotation={[0, heading, 0]}>
+            <mesh receiveShadow castShadow>
+              <boxGeometry args={[halfWidth * 2 + 0.18, 0.14, 0.68]} />
+              <meshStandardMaterial color={index % 2 === 0 ? '#806044' : '#9a744d'} roughness={0.88} />
+            </mesh>
+            <mesh position={[0, -0.13, 0]}>
+              <boxGeometry args={[halfWidth * 2 + 0.32, 0.13, 0.16]} />
+              <meshStandardMaterial color="#44372a" roughness={0.9} />
+            </mesh>
+          </group>
+        );
+      })}
+      {supports.map((progress) => {
+        const center = roadCenterX(progress, terrainType);
+        const halfWidth = roadHalfWidth(progress, terrainType);
+        const z = -progress;
+        const y = mountainHeight(center, z, terrainType);
+        const heading = roadHeading(progress, terrainType);
+        return (
+          <group key={progress} position={[center, y - 0.82, z]} rotation={[0, heading, 0]}>
+            {[-1, 1].map((side) => (
+              <mesh key={side} position={[side * (halfWidth - 0.15), 0, 0]} castShadow>
+                <boxGeometry args={[0.28, 1.64, 0.34]} />
+                <meshStandardMaterial color="#554330" roughness={0.95} />
+              </mesh>
+            ))}
+          </group>
+        );
+      })}
+    </group>
+  );
+}
+
 function FinishGate({ terrainType }: { terrainType: TerrainType }) {
   const progress = 72;
   const center = roadCenterX(progress, terrainType);
@@ -515,6 +566,7 @@ export default function HillTerrain({ terrainType = 'mountain' }: { terrainType?
       <SafetyRailRun start={46} end={55} side={-1} terrainType={terrainType} />
       <SafetyRailRun start={59} end={66} side={1} terrainType={terrainType} />
       <CheckpointGate progress={22} label="CHECKPOINT 01" terrainType={terrainType} />
+      <TimberBridge terrainType={terrainType} />
       <CheckpointGate progress={48} label="CHECKPOINT 02" terrainType={terrainType} />
       <FinishGate terrainType={terrainType} />
       <RockOutcrops terrainType={terrainType} />
@@ -523,7 +575,8 @@ export default function HillTerrain({ terrainType = 'mountain' }: { terrainType?
       <TurnMarker progress={52} side={-1} terrainType={terrainType} direction="RIGHT" />
       <TurnMarker progress={63} side={1} terrainType={terrainType} direction="LEFT" />
       {ROCKS.map((rock) => {
-        const x = roadCenterX(rock.progress, terrainType) + rock.side * (5.1 + rock.size * 0.35);
+        const x = roadCenterX(rock.progress, terrainType)
+          + rock.side * (roadHalfWidth(rock.progress, terrainType) + rock.size + 0.62);
         const z = -rock.progress;
         const y = mountainHeight(x, z, terrainType) + rock.size * 0.72;
         return (
