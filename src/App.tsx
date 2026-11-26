@@ -3,7 +3,7 @@ import { Canvas } from '@react-three/fiber';
 import { Environment, PerspectiveCamera } from '@react-three/drei';
 import { Physics } from '@react-three/rapier';
 import * as THREE from 'three';
-import HillTerrain, { roadCenterX, roadHeight } from './HillTerrain';
+import HillTerrain, { roadCenterX, roadHeight, TERRAIN_OPTIONS, type TerrainType } from './HillTerrain';
 import Truck3D, { setTouchControl, type VehicleHud } from './Truck3D';
 import RemoteTruck from './RemoteTruck';
 import {
@@ -20,7 +20,7 @@ type Mode = 'menu' | 'solo' | 'onlineLobby' | 'onlineRace';
 const EMPTY_HUD: VehicleHud = {
   speed: 0, progress: 0, gear: 'N', pitch: 0, roll: 0,
   frontLoad: 0, rearLoad: 0, frontSlip: 0, rearSlip: 0,
-  wheelContacts: 0, input: '—',
+  wheelContacts: 0, input: '—', lateral: 0, warning: '',
 };
 
 const GRID_LANES = [-2.55, -0.85, 0.85, 2.55];
@@ -33,9 +33,9 @@ function progressForSlot(slot: number) {
   return 2 + Math.floor(slot / GRID_LANES.length) * 3.1;
 }
 
-function MenuTruck() {
+function MenuTruck({ terrainType }: { terrainType: TerrainType }) {
   return (
-    <group position={[roadCenterX(2), roadHeight(2) + 1.25, -2]} rotation={[0, Math.PI / 2, 0]}>
+    <group position={[roadCenterX(2, terrainType), roadHeight(2, terrainType) + 1.25, -2]} rotation={[0, Math.PI / 2, 0]}>
       <mesh castShadow position={[0, 0.18, 0]}>
         <boxGeometry args={[2.78, 0.58, 1.42]} />
         <meshStandardMaterial color="#f5a623" roughness={0.42} metalness={0.24} />
@@ -68,6 +68,7 @@ function WorldCanvas({
   mode,
   room,
   myPlayerId,
+  terrainType,
   playerName,
   remoteStates,
   onHud,
@@ -77,6 +78,7 @@ function WorldCanvas({
   mode: Mode;
   room: OnlineRoom | null;
   myPlayerId: string | null;
+  terrainType: TerrainType;
   playerName: string;
   remoteStates: Record<string, NetworkSnapshot>;
   onHud: (hud: VehicleHud) => void;
@@ -112,9 +114,9 @@ function WorldCanvas({
       />
 
       <Suspense fallback={null}>
-        {mode === 'menu' && <MenuTruck />}
+        {mode === 'menu' && <MenuTruck terrainType={terrainType} />}
         <Physics gravity={[0, -9.81, 0]} timeStep={1 / 60}>
-          <HillTerrain />
+          <HillTerrain terrainType={terrainType} />
 
           {mode === 'solo' && (
             <Truck3D
@@ -123,6 +125,7 @@ function WorldCanvas({
               laneStart={0}
               startProgress={2}
               playerName={playerName || 'YOU'}
+              terrainType={terrainType}
               active
               camera={camera}
               onHud={onHud}
@@ -137,6 +140,7 @@ function WorldCanvas({
               laneStart={laneForSlot(localSlot)}
               startProgress={progressForSlot(localSlot)}
               playerName={playerName}
+              terrainType={terrainType}
               active={room?.status === 'racing'}
               camera={camera}
               onHud={onHud}
@@ -176,6 +180,7 @@ function PlayerHud({ hud, name }: { hud: VehicleHud; name: string }) {
       <div className="hud-main">
         <strong>{Math.round(hud.speed)}</strong><span>KM/H</span><b>{hud.gear}</b>
       </div>
+      {hud.warning && <div className="player-warning">{hud.warning}</div>}
       <div className="hud-progress">
         <span>CLIMB</span><strong>{Math.floor(hud.progress)} m</strong>
         <span>PITCH</span><strong>{hud.pitch.toFixed(1)}°</strong>
@@ -198,6 +203,69 @@ function PlayerHud({ hud, name }: { hud: VehicleHud; name: string }) {
       <div className="traction-track"><i style={{ width: `${Math.round(slip * 100)}%` }} /></div>
       <div className={slip > 0.16 ? 'traction-state slipping' : 'traction-state'}>
         {slip > 0.16 ? 'WHEEL SPIN' : 'TIRE GRIP'} · {hud.wheelContacts}/4 CONTACT
+      </div>
+    </div>
+  );
+}
+
+
+type MapOpponent = {
+  id: string;
+  name: string;
+  color: string;
+  progress: number;
+  lateral: number;
+};
+
+function trackMapPoint(progress: number, lateral: number, terrainType: TerrainType) {
+  const safeProgress = THREE.MathUtils.clamp(progress, 0, 72);
+  return {
+    x: 50 + (roadCenterX(safeProgress, terrainType) + lateral) * 3.3,
+    y: 176 - (safeProgress / 72) * 156,
+  };
+}
+
+function TrackMap({
+  hud,
+  terrainType,
+  opponents,
+  localColor,
+}: {
+  hud: VehicleHud;
+  terrainType: TerrainType;
+  opponents: MapOpponent[];
+  localColor: string;
+}) {
+  const routePoints = Array.from({ length: 37 }, (_, index) => {
+    const point = trackMapPoint(index * 2, 0, terrainType);
+    return `${point.x.toFixed(1)},${point.y.toFixed(1)}`;
+  });
+  const routePath = `M ${routePoints.join(' L ')}`;
+  const localPoint = trackMapPoint(hud.progress, hud.lateral, terrainType);
+
+  return (
+    <div className="track-map-panel">
+      <div className="track-map-heading">TRACK MAP <span>{Math.floor(hud.progress)} / 72 m</span></div>
+      <svg className="track-map-svg" viewBox="0 0 100 190" role="img" aria-label="Track map showing your position and opponents">
+        <path d={routePath} className="track-map-outline" />
+        <path d={routePath} className="track-map-route" />
+        <circle cx={trackMapPoint(0,0,terrainType).x} cy={176} r="3" className="track-map-start" />
+        <rect x="45" y="13" width="10" height="4" rx="1" className="track-map-finish" />
+        {opponents.map((opponent) => {
+          const point = trackMapPoint(opponent.progress, opponent.lateral, terrainType);
+          return (
+            <g key={opponent.id}>
+              <circle cx={point.x} cy={point.y} r="5" fill={opponent.color} className="track-map-opponent" />
+              <circle cx={point.x} cy={point.y} r="2" fill="#fff" />
+            </g>
+          );
+        })}
+        <circle cx={localPoint.x} cy={localPoint.y} r="6.1" fill={localColor} className="track-map-you" />
+        <circle cx={localPoint.x} cy={localPoint.y} r="2.4" fill="#fff" />
+      </svg>
+      <div className="track-map-legend">
+        <span><i style={{ background: localColor }} />YOU</span>
+        {opponents.length > 0 && <span><i className="track-map-legend-opponent" />RIVALS</span>}
       </div>
     </div>
   );
@@ -375,6 +443,7 @@ function TouchControls() {
 
 export default function App() {
   const [mode, setMode] = useState<Mode>('menu');
+  const [terrainType, setTerrainType] = useState<TerrainType>('mountain');
   const [hud, setHud] = useState<VehicleHud>(EMPTY_HUD);
   const [playerName, setPlayerName] = useState('CLIMBER');
   const [roomCodeInput, setRoomCodeInput] = useState('');
@@ -530,6 +599,19 @@ export default function App() {
     ? Math.max(0, Math.ceil((room.startedAt - now) / 1000))
     : 3;
   const localPlayerName = room?.players.find((player) => player.id === myPlayerId)?.name ?? playerName;
+  const localPlayerColor = room?.players.find((player) => player.id === myPlayerId)?.color ?? '#f5a623';
+  const mapOpponents: MapOpponent[] = (room?.players ?? [])
+    .filter((player) => player.id !== myPlayerId)
+    .flatMap((player) => {
+      const state = remoteStates[player.id] ?? player.state;
+      return state ? [{
+        id: player.id,
+        name: player.name,
+        color: player.color,
+        progress: state.progress,
+        lateral: state.position.x - roadCenterX(state.progress, terrainType),
+      }] : [];
+    });
 
   return (
     <main className="app-shell">
@@ -539,6 +621,7 @@ export default function App() {
             mode={mode}
             room={room}
             myPlayerId={myPlayerId}
+            terrainType={terrainType}
             playerName={localPlayerName}
             remoteStates={remoteStates}
             onHud={setHud}
@@ -575,6 +658,24 @@ export default function App() {
           <div className="menu-buttons">
             <button className="primary" onClick={() => { setSoloFinished(false); setMode('solo'); }}>▶ SOLO CLIMB</button>
             <button className="secondary" onClick={() => { setError(''); setMode('onlineLobby'); }}>🌐 ONLINE MULTIPLAYER</button>
+          </div>
+          <div className="world-picker">
+            <span className="world-picker-title">CHOOSE YOUR WORLD</span>
+            <div className="world-picker-options">
+              {TERRAIN_OPTIONS.map((world) => (
+                <button
+                  key={world.id}
+                  type="button"
+                  className={terrainType === world.id ? 'world-choice selected' : 'world-choice'}
+                  onClick={() => setTerrainType(world.id)}
+                  aria-pressed={terrainType === world.id}
+                >
+                  <strong>{world.id === 'mountain' ? '⛰' : world.id === 'desert' ? '☀' : world.id === 'snow' ? '❄' : '🌴'}</strong>
+                  <span>{world.name}</span>
+                </button>
+              ))}
+            </div>
+            <small>{TERRAIN_OPTIONS.find((world) => world.id === terrainType)?.detail}</small>
           </div>
           <div className="feature-row">
             <span>⛰️ REAL 3D TERRAIN</span>
@@ -616,6 +717,12 @@ export default function App() {
             </button>
           </div>
           <PlayerHud hud={hud} name={mode === 'solo' ? playerName : localPlayerName} />
+          <TrackMap
+            hud={hud}
+            terrainType={terrainType}
+            opponents={mode === 'onlineRace' ? mapOpponents : []}
+            localColor={mode === 'solo' ? '#f5a623' : localPlayerColor}
+          />
           <div className="player-control-hint hint-solo">
             W ACCELERATE · S REVERSE · A / D STEER · SPACE BRAKE · R RESET
           </div>
