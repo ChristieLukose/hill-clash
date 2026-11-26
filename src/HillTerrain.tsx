@@ -103,6 +103,60 @@ function createTrailGeometry() {
   return geometry;
 }
 
+function FinishGate() {
+  const progress = 72;
+  const center = roadCenterX(progress);
+  const baseY = mountainHeight(center, -progress) + 0.08;
+  const bannerTiles = Array.from({ length: 20 }, (_, index) => ({
+    x: -4.25 + (index % 10) * 0.85,
+    y: 3.15 + Math.floor(index / 10) * 0.38,
+    light: (index % 10 + Math.floor(index / 10)) % 2 === 0,
+    key: index,
+  }));
+  const groundTiles = Array.from({ length: 10 }, (_, index) => {
+    const x = -3.6 + index * 0.8;
+    return {
+      x,
+      y: mountainHeight(center + x, -progress) + 0.11 - baseY,
+      light: index % 2 === 0,
+      key: index,
+    };
+  });
+
+  return (
+    <group position={[center, baseY, -progress]}>
+      <mesh position={[-4.4, 1.65, 0]} castShadow>
+        <boxGeometry args={[0.38, 3.3, 0.42]} />
+        <meshStandardMaterial color="#f4b52e" metalness={0.18} roughness={0.55} />
+      </mesh>
+      <mesh position={[4.4, 1.65, 0]} castShadow>
+        <boxGeometry args={[0.38, 3.3, 0.42]} />
+        <meshStandardMaterial color="#f4b52e" metalness={0.18} roughness={0.55} />
+      </mesh>
+      <mesh position={[0, 3.25, 0]} castShadow>
+        <boxGeometry args={[9.15, 0.58, 0.48]} />
+        <meshStandardMaterial color="#172536" roughness={0.5} />
+      </mesh>
+      {bannerTiles.map((tile) => (
+        <mesh key={tile.key} position={[tile.x, tile.y, 0.255]}>
+          <boxGeometry args={[0.85, 0.38, 0.035]} />
+          <meshStandardMaterial color={tile.light ? '#f7f4e9' : '#1a2632'} roughness={0.85} />
+        </mesh>
+      ))}
+      {groundTiles.map((tile) => (
+        <mesh key={tile.key} position={[tile.x, tile.y, 0.35]} receiveShadow>
+          <boxGeometry args={[0.8, 0.055, 0.9]} />
+          <meshStandardMaterial color={tile.light ? '#f7f4e9' : '#182330'} roughness={0.9} />
+        </mesh>
+      ))}
+      <mesh position={[0, 2.55, 0.31]}>
+        <boxGeometry args={[3.1, 0.32, 0.04]} />
+        <meshStandardMaterial color="#ffc43a" emissive="#6b4300" emissiveIntensity={0.3} />
+      </mesh>
+    </group>
+  );
+}
+
 const ROCKS = [
   { progress: 9, side: -1, size: 1.15, rotation: 0.4 },
   { progress: 17, side: 1, size: 1.45, rotation: 1.1 },
@@ -126,6 +180,7 @@ export default function HillTerrain() {
       <mesh geometry={trail} receiveShadow frustumCulled={false} renderOrder={1}>
         <meshStandardMaterial color="#806b4d" roughness={1} side={THREE.DoubleSide} polygonOffset polygonOffsetFactor={-1} />
       </mesh>
+      <FinishGate />
       {ROCKS.map((rock) => {
         const x = roadCenterX(rock.progress) + rock.side * (5.1 + rock.size * 0.35);
         const z = -rock.progress;
