@@ -3,42 +3,89 @@ import { Html } from '@react-three/drei';
 import * as THREE from 'three';
 import { RigidBody } from '@react-three/rapier';
 
-/** Centreline of the climbing trail, expressed in world X for a progress value. */
-export function roadCenterX(progress: number) {
+export type TerrainType = 'mountain' | 'desert' | 'snow' | 'jungle';
+
+export const TERRAIN_OPTIONS: Array<{ id: TerrainType; name: string; detail: string }> = [
+  { id: 'mountain', name: 'Mountain', detail: 'Rocky alpine trail' },
+  { id: 'desert', name: 'Desert', detail: 'Dunes and dry canyons' },
+  { id: 'snow', name: 'Snow', detail: 'Icy ridges and pine forest' },
+  { id: 'jungle', name: 'Jungle', detail: 'Dense tropical slopes' },
+];
+
+const TERRAIN_STYLES: Record<TerrainType, { ground: string; trail: string; rock: string; foliage: string; trunk: string }> = {
+  mountain: { ground: '#66894c', trail: '#806b4d', rock: '#77786f', foliage: '#335d37', trunk: '#59452f' },
+  desert: { ground: '#c79a58', trail: '#a97843', rock: '#8d5637', foliage: '#3f7a4b', trunk: '#5b5334' },
+  snow: { ground: '#d9e6ed', trail: '#8da8b7', rock: '#8797a0', foliage: '#365b69', trunk: '#655d54' },
+  jungle: { ground: '#315f3e', trail: '#70533b', rock: '#626b58', foliage: '#1d5738', trunk: '#493c2d' },
+};
+
+/** Centreline of each route, expressed in world X for a progress value. */
+export function roadCenterX(progress: number, terrainType: TerrainType = 'mountain') {
   const distance = Math.max(0, progress);
+  if (terrainType === 'desert') {
+    return Math.sin(distance * 0.052) * 5.4 + Math.sin(distance * 0.021) * 1.35;
+  }
+  if (terrainType === 'snow') {
+    return Math.sin(distance * 0.086) * 3.5 + Math.sin(distance * 0.031) * 1.45;
+  }
+  if (terrainType === 'jungle') {
+    return Math.sin(distance * 0.064) * 4.8 + Math.sin(distance * 0.019) * 1.55;
+  }
   return Math.sin(distance * 0.075) * 4.2 + Math.sin(distance * 0.025) * 1.1;
 }
 
 /** Height of the centre of the playable road. Progress increases uphill toward -Z. */
-export function roadHeight(progress: number) {
+export function roadHeight(progress: number, terrainType: TerrainType = 'mountain') {
   const z = -progress;
-  return mountainHeight(roadCenterX(progress), z);
+  return mountainHeight(roadCenterX(progress, terrainType), z, terrainType);
 }
 
 /** Finite-difference grade along the direction of travel. */
-export function roadSlope(progress: number) {
+export function roadSlope(progress: number, terrainType: TerrainType = 'mountain') {
   const sample = 0.08;
-  return (roadHeight(progress + sample) - roadHeight(progress - sample)) / (2 * sample);
+  return (roadHeight(progress + sample, terrainType) - roadHeight(progress - sample, terrainType)) / (2 * sample);
 }
 
-function trailCenter(z: number) {
-  const distance = Math.max(0, -z);
-  return Math.sin(distance * 0.075) * 4.2 + Math.sin(distance * 0.025) * 1.1;
+function trailCenter(z: number, terrainType: TerrainType = 'mountain') {
+  return roadCenterX(Math.max(0, -z), terrainType);
 }
 
-export function mountainHeight(x: number, z: number) {
+/** Shared themed height function used by visuals, road collision and recovery. */
+export function mountainHeight(x: number, z: number, terrainType: TerrainType = 'mountain') {
   const distance = Math.max(0, -z - 3);
-  const climb = distance * 0.21 + 1.25 * Math.sin(distance * 0.22);
-  const trailDistance = Math.abs(x - trailCenter(z));
-  const shoulder = Math.min(2.8, Math.max(0, trailDistance - 5.6) ** 2 * 0.018);
-  const roughness =
-    Math.sin(x * 0.31 + z * 0.19) * 0.26 +
-    Math.cos(z * 0.29) * 0.17 +
-    Math.sin(x * 0.17 - z * 0.11) * 0.12;
-  return climb + shoulder + roughness;
+  const trailDistance = Math.abs(x - trailCenter(z, terrainType));
+  const shoulder = Math.min(3.2, Math.max(0, trailDistance - 5.6) ** 2 * 0.018);
+  const baseClimb = terrainType === 'desert'
+    ? distance * 0.17 + 1.15 * Math.sin(distance * 0.16)
+    : terrainType === 'snow'
+      ? distance * 0.235 + 0.95 * Math.sin(distance * 0.2)
+      : terrainType === 'jungle'
+        ? distance * 0.195 + 1.35 * Math.sin(distance * 0.24)
+        : distance * 0.21 + 1.25 * Math.sin(distance * 0.22);
+
+  const trailRoughness = 1 - Math.min(1, trailDistance / 7.5);
+  const broadRidges =
+    Math.sin(x * 0.19 + z * 0.11) * 0.48 +
+    Math.cos(z * 0.17 - x * 0.13) * 0.34;
+  const detailRidges =
+    Math.sin(x * 0.53 + z * 0.29) * 0.19 +
+    Math.cos(x * 0.37 - z * 0.41) * 0.15;
+
+  let surfaceDetail = broadRidges + detailRidges;
+  if (terrainType === 'desert') {
+    surfaceDetail += Math.sin(x * 0.24 + z * 0.12) * 0.85 + Math.cos(x * 0.15 - z * 0.1) * 0.42;
+  } else if (terrainType === 'snow') {
+    surfaceDetail += Math.abs(Math.sin(x * 0.16 + z * 0.21)) * 0.55;
+  } else if (terrainType === 'jungle') {
+    surfaceDetail += Math.sin(x * 0.34 + z * 0.18) * 0.52 + Math.cos(x * 0.27 - z * 0.23) * 0.38;
+  }
+
+  const roughness = surfaceDetail * (0.35 + trailRoughness * 0.34);
+  const trailSmoothing = terrainType === 'mountain' ? 0.38 : terrainType === 'snow' ? 0.32 : 0.44;
+  return baseClimb + shoulder + roughness - trailRoughness * trailSmoothing;
 }
 
-function createMountainGeometry() {
+function createMountainGeometry(terrainType: TerrainType) {
   const width = 90;
   const depth = 150;
   const xSegments = 110;
@@ -50,7 +97,7 @@ function createMountainGeometry() {
     const z = -depth / 2 + (iz / zSegments) * depth;
     for (let ix = 0; ix <= xSegments; ix += 1) {
       const x = -width / 2 + (ix / xSegments) * width;
-      positions.push(x, mountainHeight(x, z), z);
+      positions.push(x, mountainHeight(x, z, terrainType), z);
     }
   }
 
@@ -74,7 +121,7 @@ function createMountainGeometry() {
   return geometry;
 }
 
-function createTrailGeometry() {
+function createTrailGeometry(terrainType: TerrainType) {
   const segments = 180;
   const startZ = 14;
   const endZ = -72;
@@ -85,9 +132,9 @@ function createTrailGeometry() {
   for (let i = 0; i <= segments; i += 1) {
     const t = i / segments;
     const z = startZ + (endZ - startZ) * t;
-    const center = trailCenter(z);
-    positions.push(center - halfWidth, mountainHeight(center - halfWidth, z) + 0.075, z);
-    positions.push(center + halfWidth, mountainHeight(center + halfWidth, z) + 0.075, z);
+    const center = trailCenter(z, terrainType);
+    positions.push(center - halfWidth, mountainHeight(center - halfWidth, z, terrainType) + 0.075, z);
+    positions.push(center + halfWidth, mountainHeight(center + halfWidth, z, terrainType) + 0.075, z);
 
     if (i < segments) {
       const a = i * 2;
@@ -104,10 +151,10 @@ function createTrailGeometry() {
   return geometry;
 }
 
-function FinishGate() {
+function FinishGate({ terrainType }: { terrainType: TerrainType }) {
   const progress = 72;
-  const center = roadCenterX(progress);
-  const baseY = mountainHeight(center, -progress) + 0.08;
+  const center = roadCenterX(progress, terrainType);
+  const baseY = mountainHeight(center, -progress, terrainType) + 0.08;
   const bannerTiles = Array.from({ length: 20 }, (_, index) => ({
     x: -4.25 + (index % 10) * 0.85,
     y: 3.15 + Math.floor(index / 10) * 0.38,
@@ -118,7 +165,7 @@ function FinishGate() {
     const x = -3.6 + index * 0.8;
     return {
       x,
-      y: mountainHeight(center + x, -progress) + 0.11 - baseY,
+      y: mountainHeight(center + x, -progress, terrainType) + 0.11 - baseY,
       light: index % 2 === 0,
       key: index,
     };
@@ -172,25 +219,26 @@ const ROCKS = [
   { progress: 58, side: 1, size: 1.25, rotation: 0.6 },
 ];
 
-export default function HillTerrain() {
-  const mountain = useMemo(createMountainGeometry, []);
-  const trail = useMemo(createTrailGeometry, []);
+export default function HillTerrain({ terrainType = 'mountain' }: { terrainType?: TerrainType }) {
+  const style = TERRAIN_STYLES[terrainType];
+  const mountain = useMemo(() => createMountainGeometry(terrainType), [terrainType]);
+  const trail = useMemo(() => createTrailGeometry(terrainType), [terrainType]);
 
   return (
     <group>
       <RigidBody type="fixed" colliders="trimesh" friction={1.05} restitution={0}>
         <mesh geometry={mountain} receiveShadow frustumCulled={false}>
-          <meshStandardMaterial color="#66894c" roughness={1} side={THREE.DoubleSide} />
+          <meshStandardMaterial color={style.ground} roughness={1} side={THREE.DoubleSide} />
         </mesh>
       </RigidBody>
       <mesh geometry={trail} receiveShadow frustumCulled={false} renderOrder={1}>
-        <meshStandardMaterial color="#806b4d" roughness={1} side={THREE.DoubleSide} polygonOffset polygonOffsetFactor={-1} />
+        <meshStandardMaterial color={style.trail} roughness={1} side={THREE.DoubleSide} polygonOffset polygonOffsetFactor={-1} />
       </mesh>
-      <FinishGate />
+      <FinishGate terrainType={terrainType} />
       {ROCKS.map((rock) => {
-        const x = roadCenterX(rock.progress) + rock.side * (5.1 + rock.size * 0.35);
+        const x = roadCenterX(rock.progress, terrainType) + rock.side * (5.1 + rock.size * 0.35);
         const z = -rock.progress;
-        const y = mountainHeight(x, z) + rock.size * 0.72;
+        const y = mountainHeight(x, z, terrainType) + rock.size * 0.72;
         return (
           <RigidBody
             key={rock.progress}
@@ -203,7 +251,7 @@ export default function HillTerrain() {
           >
             <mesh castShadow receiveShadow>
               <dodecahedronGeometry args={[rock.size, 1]} />
-              <meshStandardMaterial color="#77786f" roughness={1} />
+              <meshStandardMaterial color={style.rock} roughness={1} />
             </mesh>
           </RigidBody>
         );
@@ -211,15 +259,33 @@ export default function HillTerrain() {
       {Array.from({ length: 18 }, (_, i) => {
         const progress = 5 + i * 4.2;
         const z = -progress;
-        const center = roadCenterX(progress);
+        const center = roadCenterX(progress, terrainType);
         const side = i % 2 === 0 ? -1 : 1;
         const x = center + side * (11 + (i % 3) * 2.2);
-        const y = mountainHeight(x, z) + 2.1;
+        const y = mountainHeight(x, z, terrainType) + 2.1;
         return (
           <RigidBody key={`pine-${i}`} type="fixed" colliders="hull" position={[x, y, z]}>
             <group>
-              <mesh castShadow><coneGeometry args={[1.5, 4.3, 5]} /><meshStandardMaterial color="#335d37" /></mesh>
-              <mesh position={[0, -1.9, 0]}><cylinderGeometry args={[0.22, 0.3, 1.2, 6]} /><meshStandardMaterial color="#59452f" /></mesh>
+              {terrainType === 'desert' ? (
+                <group>
+                  <mesh castShadow><cylinderGeometry args={[0.24, 0.34, 2.3, 7]} /><meshStandardMaterial color="#3f7a4b" /></mesh>
+                  <mesh position={[0.38, 0.25, 0]} rotation={[0, 0, -0.9]}><cylinderGeometry args={[0.13, 0.16, 0.9, 7]} /><meshStandardMaterial color="#3f7a4b" /></mesh>
+                  <mesh position={[-0.38, 0.5, 0]} rotation={[0, 0, 0.9]}><cylinderGeometry args={[0.13, 0.16, 0.9, 7]} /><meshStandardMaterial color="#3f7a4b" /></mesh>
+                </group>
+              ) : terrainType === 'jungle' ? (
+                <group>
+                  <mesh position={[0, -0.8, 0]}><cylinderGeometry args={[0.18, 0.28, 2.6, 7]} /><meshStandardMaterial color={style.trunk} /></mesh>
+                  <mesh castShadow position={[0, 0.85, 0]} scale={[1.1, 0.8, 1]}><sphereGeometry args={[1.45, 8, 7]} /><meshStandardMaterial color={style.foliage} roughness={1} /></mesh>
+                  <mesh castShadow position={[-0.85, 0.45, 0.35]} scale={[0.7, 0.8, 0.75]}><sphereGeometry args={[1, 8, 7]} /><meshStandardMaterial color="#397a45" roughness={1} /></mesh>
+                  <mesh castShadow position={[0.85, 0.45, -0.28]} scale={[0.75, 0.85, 0.75]}><sphereGeometry args={[1, 8, 7]} /><meshStandardMaterial color="#24663b" roughness={1} /></mesh>
+                </group>
+              ) : (
+                <group>
+                  <mesh castShadow><coneGeometry args={[1.5, 4.3, 5]} /><meshStandardMaterial color={style.foliage} /></mesh>
+                  {terrainType === 'snow' && <mesh castShadow position={[0, 0.45, 0]}><coneGeometry args={[1.12, 3.2, 5]} /><meshStandardMaterial color="#f4f8fb" /></mesh>}
+                  <mesh position={[0, -1.9, 0]}><cylinderGeometry args={[0.22, 0.3, 1.2, 6]} /><meshStandardMaterial color={style.trunk} /></mesh>
+                </group>
+              )}
             </group>
           </RigidBody>
         );
