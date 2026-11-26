@@ -791,3 +791,104 @@
   .race-countdown { width: 112px; height: 112px; }
   .race-countdown span { font-size: 64px; }
 }
+
+
+/* Mobile touchscreen driving controls */
+.touch-controls {
+  display: none;
+  position: absolute;
+  z-index: 6;
+  right: 0;
+  bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+  left: 0;
+  align-items: flex-end;
+  justify-content: space-between;
+  padding: 0 14px;
+  pointer-events: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+.touch-steering,
+.touch-driving {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  pointer-events: none;
+}
+.touch-button {
+  display: grid;
+  place-items: center;
+  border: 1px solid rgba(255,255,255,.38);
+  border-radius: 17px;
+  background: rgba(15, 29, 45, .82);
+  box-shadow: 0 5px 16px rgba(0,0,0,.32), inset 0 1px rgba(255,255,255,.12);
+  color: #fff;
+  font: 900 20px Inter, sans-serif;
+  touch-action: none;
+  -webkit-tap-highlight-color: transparent;
+  pointer-events: auto;
+}
+.touch-button:active {
+  transform: scale(.96);
+  filter: brightness(1.22);
+  background-color: rgba(40, 62, 82, .96);
+}
+.touch-steer {
+  width: 62px;
+  height: 66px;
+  font-size: 25px;
+}
+.touch-reset {
+  width: 43px;
+  height: 43px;
+  margin-left: 1px;
+  border-radius: 50%;
+  color: #ffd36a;
+  font-size: 25px;
+}
+.touch-driving {
+  display: grid;
+  grid-template-columns: 62px 78px;
+  grid-template-rows: 50px 50px;
+  gap: 7px;
+}
+.touch-reverse,
+.touch-brake {
+  width: 62px;
+  height: 50px;
+  border-radius: 13px;
+  font-size: 10px;
+  letter-spacing: .6px;
+}
+.touch-reverse { grid-column: 1; grid-row: 1; color: #ffd18b; }
+.touch-brake { grid-column: 1; grid-row: 2; color: #9edbff; }
+.touch-throttle {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+  width: 78px;
+  height: 107px;
+  border-color: rgba(116, 228, 163, .7);
+  background: rgba(17, 83, 58, .86);
+  color: #a8ffc8;
+  font-size: 29px;
+}
+.touch-throttle small {
+  margin-top: -22px;
+  font-size: 10px;
+  letter-spacing: 1px;
+}
+@media (pointer: coarse), (max-width: 760px) {
+  .touch-controls { display: flex; }
+  .player-control-hint { display: none; }
+  footer { display: none; }
+  .race-result-overlay { padding-bottom: env(safe-area-inset-bottom, 0px); }
+}
+@media (max-width: 390px) {
+  .touch-controls { padding: 0 9px; }
+  .touch-steering, .touch-driving { gap: 6px; }
+  .touch-steer { width: 54px; height: 60px; }
+  .touch-reset { width: 38px; height: 38px; }
+  .touch-driving { grid-template-columns: 55px 68px; grid-template-rows: 45px 45px; }
+  .touch-reverse, .touch-brake { width: 55px; height: 45px; }
+  .touch-throttle { width: 68px; height: 96px; }
+}
