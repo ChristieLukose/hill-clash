@@ -1,4 +1,5 @@
 import { useMemo } from 'react';
+import { Html } from '@react-three/drei';
 import * as THREE from 'three';
 import { RigidBody } from '@react-three/rapier';
 
@@ -153,6 +154,11 @@ function FinishGate() {
         <boxGeometry args={[3.1, 0.32, 0.04]} />
         <meshStandardMaterial color="#ffc43a" emissive="#6b4300" emissiveIntensity={0.3} />
       </mesh>
+      <Html position={[0, 2.55, 0.36]} center distanceFactor={16} style={{ pointerEvents: 'none' }}>
+        <div style={{ color: '#172536', font: '900 12px Inter, sans-serif', letterSpacing: '2px', whiteSpace: 'nowrap', textShadow: '0 1px 0 #ffe28a' }}>
+          SUMMIT
+        </div>
+      </Html>
     </group>
   );
 }
